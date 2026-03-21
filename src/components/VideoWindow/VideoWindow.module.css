@@ -1,0 +1,37 @@
+/* VideoWindow styles - using CSS Modules for scoping */
+.window {
+  position: absolute;
+  overflow: hidden;
+  background: #000;
+}
+
+.windowActive {
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+.titleBar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  fontSize: 12px;
+}
+
+.closeButton {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.6);
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+}
