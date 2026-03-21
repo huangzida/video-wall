@@ -70,6 +70,9 @@ export function calculateScale(
   mode: 'contain' | 'cover' | 'original' | 'custom',
   customScale?: number
 ): number {
+  if (containerSize.width === 0 || containerSize.height === 0) {
+    return 1;
+  }
   switch (mode) {
     case 'contain': {
       const scaleX = containerSize.width / wallSize.width;

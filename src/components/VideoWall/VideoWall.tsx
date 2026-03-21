@@ -2,7 +2,6 @@ import {
   useRef,
   useEffect,
   useState,
-  useCallback,
   forwardRef,
   useImperativeHandle,
 } from 'react';
@@ -11,9 +10,11 @@ import Selecto from 'selecto';
 import { VideoWindow } from '../VideoWindow';
 import { DebugPanel } from '../DebugPanel';
 import { useVideoWall } from '../../hooks/useVideoWall';
-import type { VideoWallProps, VideoWallRef, WindowState } from '../../types';
+import type { VideoWallProps, VideoWallRef } from '../../types';
 import { getRectCenter } from '../../utils/coordinate';
-import './VideoWall.module.css';
+import { calculateCellPositions } from '../../utils/layout';
+
+const MIN_SELECTION_SIZE = 20;
 
 export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) => {
   const {
@@ -38,6 +39,8 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
   const moveableRef = useRef<Moveable | null>(null);
   const selectoRef = useRef<Selecto | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
+  const isDraggingRef = useRef(false);
+  const selectionStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const {
     windows,
@@ -50,10 +53,8 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
     applyPreset,
     scale,
     wallSize,
-    cellPositions,
-    containerRef: videoWallContainerRef,
     handleContainerResize,
-  } = useVideoWall(props);
+  } = useVideoWall(props, containerRef);
 
   useImperativeHandle(ref, () => ({
     addWindow: (config) => {
@@ -88,12 +89,13 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
       bounds: {
         left: 0,
         top: 0,
-        right: wallSize.width * scale,
-        bottom: wallSize.height * scale,
+        right: wallSize.width,
+        bottom: wallSize.height,
       },
     });
 
     moveable.on('dragStart', (e: any) => {
+      isDraggingRef.current = true;
       const windowId = e.target.getAttribute('data-window-id');
       if (windowId) {
         activateWindow(windowId);
@@ -103,13 +105,12 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
     moveable.on('drag', (e: any) => {
       const windowId = e.target.getAttribute('data-window-id');
       if (windowId) {
-        const newX = e.left / scale;
-        const newY = e.top / scale;
-        updateWindow(windowId, { position: [newX, newY] });
+        updateWindow(windowId, { position: [e.left, e.top] });
       }
     });
 
     moveable.on('dragEnd', (e: any) => {
+      isDraggingRef.current = false;
       const windowId = e.target.getAttribute('data-window-id');
       if (windowId) {
         const rect = e.target.getBoundingClientRect();
@@ -137,9 +138,7 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
     moveable.on('resize', (e: any) => {
       const windowId = e.target.getAttribute('data-window-id');
       if (windowId) {
-        const newWidth = e.width / scale;
-        const newHeight = e.height / scale;
-        updateWindow(windowId, { size: [newWidth, newHeight] });
+        updateWindow(windowId, { size: [e.width, e.height] });
         e.target.style.width = `${e.width}px`;
         e.target.style.height = `${e.height}px`;
       }
@@ -154,13 +153,19 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
     });
 
     selecto.on('selectStart', (e: any) => {
-      if (e.target.getAttribute('data-window-id')) {
+      if (e.target && e.target.getAttribute('data-window-id')) {
         e.stop();
+      } else {
+        selectionStartRef.current = { x: e.clientX, y: e.clientY };
       }
     });
 
     selecto.on('selectEnd', (e: any) => {
-      if (e.selected.length === 0) {
+      if (isDraggingRef.current) return;
+      
+      selectionStartRef.current = null;
+      
+      if (e.selected.length === 0 && e.inputEvent) {
         const rect = e.inputEvent.target?.getBoundingClientRect?.();
         if (rect) {
           const containerRect = containerRef.current?.getBoundingClientRect();
@@ -169,10 +174,8 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
             const startY = (rect.top - containerRect.top) / scale;
             
             const isStartOccupied = windows.some(win => {
-              const winRight = win.position[0] + win.size[0];
-              const winBottom = win.position[1] + win.size[1];
-              return startX >= win.position[0] && startX <= winRight &&
-                     startY >= win.position[1] && startY <= winBottom;
+              return startX >= win.position[0] && startX <= win.position[0] + win.size[0] &&
+                     startY >= win.position[1] && startY <= win.position[1] + win.size[1];
             });
             
             if (isStartOccupied) {
@@ -181,6 +184,10 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
             
             const width = rect.width / scale;
             const height = rect.height / scale;
+
+            if (width < MIN_SELECTION_SIZE / scale || height < MIN_SELECTION_SIZE / scale) {
+              return;
+            }
 
             const config: any = {
               position: [startX, startY],
@@ -206,11 +213,17 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
       moveable.destroy();
       selecto.destroy();
     };
-  }, [wallSize, scale, windows, cells]);
+  }, [wallSize.width, wallSize.height]);
 
   useEffect(() => {
-    handleContainerResize();
-    const observer = new ResizeObserver(handleContainerResize);
+    if (containerRef.current) {
+      handleContainerResize();
+    }
+    const observer = new ResizeObserver(() => {
+      if (containerRef.current) {
+        handleContainerResize();
+      }
+    });
     if (containerRef.current) {
       observer.observe(containerRef.current);
     }
@@ -229,6 +242,8 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedTarget, removeWindow, onWindowClose]);
 
+  const cellPositionsCalc = calculateCellPositions(cells, layout, gap);
+
   return (
     <div
       ref={containerRef}
@@ -237,7 +252,10 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
         height: '100%',
         position: 'relative',
         overflow: 'hidden',
-        background: background?.color ?? '#000',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: background?.color ?? '#0a0a12',
         backgroundImage: background?.image ? `url(${background.image})` : undefined,
         backgroundSize: 'cover',
       }}
@@ -246,16 +264,54 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
         ref={wallRef}
         style={{
           position: 'relative',
-          width: wallSize.width * scale,
-          height: wallSize.height * scale,
-          transformOrigin: 'top left',
+          width: wallSize.width,
+          height: wallSize.height,
+          transform: `scale(${scale})`,
+          transformOrigin: 'center center',
+          background: 'linear-gradient(135deg, rgba(20, 20, 35, 0.95) 0%, rgba(15, 15, 25, 0.98) 100%)',
+          borderRadius: 12,
+          boxShadow: '0 25px 80px rgba(0,0,0,0.6), 0 0 1px rgba(255,255,255,0.1) inset',
+          border: '1px solid rgba(99, 102, 241, 0.15)',
         }}
       >
+        {cellPositionsCalc.map((cell, index) => (
+          <div
+            key={cell.cellId}
+            style={{
+              position: 'absolute',
+              left: cell.x,
+              top: cell.y,
+              width: cell.width,
+              height: cell.height,
+              border: '1px solid rgba(99, 102, 241, 0.12)',
+              background: index % 2 === 0 
+                ? 'rgba(99, 102, 241, 0.02)' 
+                : 'rgba(168, 85, 247, 0.015)',
+              boxSizing: 'border-box',
+            }}
+          >
+            <div style={{
+              position: 'absolute',
+              top: 6,
+              left: 6,
+              padding: '3px 8px',
+              background: 'rgba(0,0,0,0.4)',
+              borderRadius: 6,
+              fontSize: 11,
+              color: 'rgba(255,255,255,0.25)',
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+              backdropFilter: 'blur(4px)',
+            }}>
+              {index + 1}
+            </div>
+          </div>
+        ))}
+
         {windows.map((win) => (
           <VideoWindow
             key={win.id}
             window={win}
-            scale={scale}
+            scale={1}
             onMove={(id, pos) => updateWindow(id, { position: pos })}
             onResize={(id, size) => updateWindow(id, { size })}
             onClose={(id) => {

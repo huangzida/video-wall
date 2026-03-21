@@ -5,12 +5,11 @@ import type {
   WindowState,
   WindowConfig,
   Layout,
-  Cell,
 } from '../types';
 import { usePersistence } from './usePersistence';
 import { getWallSize, calculateCellPositions, calculateScale } from '../utils/layout';
 
-export function useVideoWall(props: Omit<VideoWallProps, 'ref'>) {
+export function useVideoWall(props: Omit<VideoWallProps, 'ref'>, containerRef: React.RefObject<HTMLDivElement | null>) {
   const {
     layout,
     cells,
@@ -22,7 +21,6 @@ export function useVideoWall(props: Omit<VideoWallProps, 'ref'>) {
 
   const [windows, setWindows] = useState<WindowState[]>([]);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
-  const containerRef = useRef<HTMLDivElement>(null);
 
   usePersistence(persistence, windows, setWindows);
 
@@ -107,7 +105,7 @@ export function useVideoWall(props: Omit<VideoWallProps, 'ref'>) {
       const rect = containerRef.current.getBoundingClientRect();
       setContainerSize({ width: rect.width, height: rect.height });
     }
-  }, []);
+  }, [containerRef]);
 
   return {
     windows,
