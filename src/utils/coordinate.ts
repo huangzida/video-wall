@@ -10,28 +10,32 @@ export interface Size {
 
 export interface Rect extends Point, Size {}
 
-export function logicalToScreen(
-  logical: Point | Size,
-  scale: number
-): Point | Size {
+export function logicalToScreenPoint(point: Point, scale: number): Point {
   return {
-    x: 'x' in logical ? logical.x * scale : undefined,
-    y: 'y' in logical ? logical.y * scale : undefined,
-    width: 'width' in logical ? logical.width * scale : undefined,
-    height: 'height' in logical ? logical.height * scale : undefined,
-  } as Point | Size;
+    x: point.x * scale,
+    y: point.y * scale,
+  };
 }
 
-export function screenToLogical(
-  screen: Point | Size,
-  scale: number
-): Point | Size {
+export function logicalToScreenSize(size: Size, scale: number): Size {
   return {
-    x: 'x' in screen ? screen.x / scale : undefined,
-    y: 'y' in screen ? screen.y / scale : undefined,
-    width: 'width' in screen ? screen.width / scale : undefined,
-    height: 'height' in screen ? screen.height / scale : undefined,
-  } as Point | Size;
+    width: size.width * scale,
+    height: size.height * scale,
+  };
+}
+
+export function screenToLogicalPoint(point: Point, scale: number): Point {
+  return {
+    x: point.x / scale,
+    y: point.y / scale,
+  };
+}
+
+export function screenToLogicalSize(size: Size, scale: number): Size {
+  return {
+    width: size.width / scale,
+    height: size.height / scale,
+  };
 }
 
 export function isPointInRect(point: Point, rect: Rect): boolean {

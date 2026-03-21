@@ -1,28 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import {
-  logicalToScreen,
-  screenToLogical,
+  logicalToScreenPoint,
+  screenToLogicalPoint,
   isPointInRect,
   doRectsOverlap,
   getRectCenter,
 } from './coordinate';
 
 describe('coordinate', () => {
-  describe('logicalToScreen', () => {
+  describe('logicalToScreenPoint', () => {
     it('converts logical coordinates to screen coordinates', () => {
       const point = { x: 100, y: 200 };
       const scale = 0.5;
-      const result = logicalToScreen(point, scale);
+      const result = logicalToScreenPoint(point, scale);
       expect(result.x).toBe(50);
       expect(result.y).toBe(100);
     });
   });
 
-  describe('screenToLogical', () => {
+  describe('screenToLogicalPoint', () => {
     it('converts screen coordinates to logical coordinates', () => {
       const point = { x: 50, y: 100 };
       const scale = 0.5;
-      const result = screenToLogical(point, scale);
+      const result = screenToLogicalPoint(point, scale);
       expect(result.x).toBe(100);
       expect(result.y).toBe(200);
     });

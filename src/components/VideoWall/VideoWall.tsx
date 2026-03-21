@@ -80,7 +80,7 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
   useEffect(() => {
     if (!wallRef.current) return;
 
-    moveableRef.current = new Moveable(wallRef.current, {
+    const moveable = new Moveable(wallRef.current, {
       draggable: true,
       resizable: true,
       snappable: true,
@@ -91,121 +91,120 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
         right: wallSize.width * scale,
         bottom: wallSize.height * scale,
       },
-      onDragStart: (e) => {
-        const windowId = e.target.getAttribute('data-window-id');
-        if (windowId) {
-          activateWindow(windowId);
-          selectoRef.current?.checkDragStartFlag('drag');
-        }
-      },
-      onDrag: (e) => {
-        const windowId = e.target.getAttribute('data-window-id');
-        if (windowId) {
-          const newX = e.left / scale;
-          const newY = e.top / scale;
-          updateWindow(windowId, { position: [newX, newY] });
-        }
-      },
-      onDragEnd: (e) => {
-        const windowId = e.target.getAttribute('data-window-id');
-        if (windowId) {
-          const rect = e.target.getBoundingClientRect();
-          const center = getRectCenter({
-            x: rect.left,
-            y: rect.top,
-            width: rect.width,
-            height: rect.height,
-          });
-          const containerRect = containerRef.current?.getBoundingClientRect();
-          if (containerRect) {
-            const relativeX = (center.x - containerRect.left) / scale;
-            const relativeY = (center.y - containerRect.top) / scale;
-            if (
-              relativeX < 0 || relativeX > wallSize.width ||
-              relativeY < 0 || relativeY > wallSize.height
-            ) {
-              removeWindow(windowId);
-              onWindowClose?.(windowId);
-            }
-          }
-        }
-      },
-      onResize: (e) => {
-        const windowId = e.target.getAttribute('data-window-id');
-        if (windowId) {
-          const newWidth = e.width / scale;
-          const newHeight = e.height / scale;
-          updateWindow(windowId, { size: [newWidth, newHeight] });
-          e.target.style.width = `${e.width}px`;
-          e.target.style.height = `${e.height}px`;
-        }
-      },
     });
 
-    selectoRef.current = new Selecto({
+    moveable.on('dragStart', (e: any) => {
+      const windowId = e.target.getAttribute('data-window-id');
+      if (windowId) {
+        activateWindow(windowId);
+      }
+    });
+
+    moveable.on('drag', (e: any) => {
+      const windowId = e.target.getAttribute('data-window-id');
+      if (windowId) {
+        const newX = e.left / scale;
+        const newY = e.top / scale;
+        updateWindow(windowId, { position: [newX, newY] });
+      }
+    });
+
+    moveable.on('dragEnd', (e: any) => {
+      const windowId = e.target.getAttribute('data-window-id');
+      if (windowId) {
+        const rect = e.target.getBoundingClientRect();
+        const center = getRectCenter({
+          x: rect.left,
+          y: rect.top,
+          width: rect.width,
+          height: rect.height,
+        });
+        const containerRect = containerRef.current?.getBoundingClientRect();
+        if (containerRect) {
+          const relativeX = (center.x - containerRect.left) / scale;
+          const relativeY = (center.y - containerRect.top) / scale;
+          if (
+            relativeX < 0 || relativeX > wallSize.width ||
+            relativeY < 0 || relativeY > wallSize.height
+          ) {
+            removeWindow(windowId);
+            onWindowClose?.(windowId);
+          }
+        }
+      }
+    });
+
+    moveable.on('resize', (e: any) => {
+      const windowId = e.target.getAttribute('data-window-id');
+      if (windowId) {
+        const newWidth = e.width / scale;
+        const newHeight = e.height / scale;
+        updateWindow(windowId, { size: [newWidth, newHeight] });
+        e.target.style.width = `${e.width}px`;
+        e.target.style.height = `${e.height}px`;
+      }
+    });
+
+    moveableRef.current = moveable;
+
+    const selecto = new Selecto({
       container: wallRef.current,
       selectableTargets: ['[data-window-id]'],
       selectByClick: false,
-      onSelectStart: (e) => {
-        if (e.target.getAttribute('data-window-id')) {
-          e.stop();
-        }
-      },
-      onSelectEnd: (e) => {
-        if (e.selected.length === 0) {
-          const rect = e.inputEvent.target?.getBoundingClientRect?.();
-          if (rect) {
-            const containerRect = containerRef.current?.getBoundingClientRect();
-            if (containerRect) {
-              const startX = (rect.left - containerRect.left) / scale;
-              const startY = (rect.top - containerRect.top) / scale;
-              
-              const isStartOccupied = windows.some(win => {
-                const winRight = win.position[0] + win.size[0];
-                const winBottom = win.position[1] + win.size[1];
-                return startX >= win.position[0] && startX <= winRight &&
-                       startY >= win.position[1] && startY <= winBottom;
-              });
-              
-              if (isStartOccupied) {
-                return;
-              }
-              
-              const width = rect.width / scale;
-              const height = rect.height / scale;
+    });
 
-              const config = {
-                position: [startX, startY] as [number, number],
-                size: [width, height] as [number, number],
-                streamUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-              };
+    selecto.on('selectStart', (e: any) => {
+      if (e.target.getAttribute('data-window-id')) {
+        e.stop();
+      }
+    });
 
-              const cellId = config.cellId;
-              const cell = cells.find(c => c.id === cellId);
-              if (cell?.maxWindows) {
-                const windowsInCell = windows.filter(w => w.cellId === cellId).length;
-                if (windowsInCell >= cell.maxWindows) {
-                  onMaxWindowsReached?.(cellId, cell.maxWindows);
-                  return;
-                }
-              }
+    selecto.on('selectEnd', (e: any) => {
+      if (e.selected.length === 0) {
+        const rect = e.inputEvent.target?.getBoundingClientRect?.();
+        if (rect) {
+          const containerRect = containerRef.current?.getBoundingClientRect();
+          if (containerRect) {
+            const startX = (rect.left - containerRect.left) / scale;
+            const startY = (rect.top - containerRect.top) / scale;
+            
+            const isStartOccupied = windows.some(win => {
+              const winRight = win.position[0] + win.size[0];
+              const winBottom = win.position[1] + win.size[1];
+              return startX >= win.position[0] && startX <= winRight &&
+                     startY >= win.position[1] && startY <= winBottom;
+            });
+            
+            if (isStartOccupied) {
+              return;
+            }
+            
+            const width = rect.width / scale;
+            const height = rect.height / scale;
 
-              const finalConfig = onWindowBeforeCreate?.(config) ?? config;
-              if (finalConfig) {
-                const id = addWindow(finalConfig);
-                if (id) {
-                  onWindowCreate?.({ ...finalConfig, id } as any);
-                }
+            const config: any = {
+              position: [startX, startY],
+              size: [width, height],
+              streamUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+            };
+
+            const finalConfig = onWindowBeforeCreate?.(config) ?? config;
+            if (finalConfig) {
+              const id = addWindow(finalConfig);
+              if (id) {
+                onWindowCreate?.(finalConfig);
               }
             }
           }
         }
-      },
+      }
     });
 
+    selectoRef.current = selecto;
+
     return () => {
-      moveableRef.current?.destroy();
-      selectoRef.current?.destroy();
+      moveable.destroy();
+      selecto.destroy();
     };
   }, [wallSize, scale, windows, cells]);
 
