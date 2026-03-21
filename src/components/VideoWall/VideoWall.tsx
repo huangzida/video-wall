@@ -40,7 +40,6 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
   const selectoRef = useRef<Selecto | null>(null);
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
   const isDraggingRef = useRef(false);
-  const selectionStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const {
     windows,
@@ -77,6 +76,9 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
     getScale: () => scale,
     getViewport: () => ({ width: wallSize.width, height: wallSize.height }),
   }));
+
+  const scaledWidth = wallSize.width * scale;
+  const scaledHeight = wallSize.height * scale;
 
   useEffect(() => {
     if (!wallRef.current) return;
@@ -155,15 +157,11 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
     selecto.on('selectStart', (e: any) => {
       if (e.target && e.target.getAttribute('data-window-id')) {
         e.stop();
-      } else {
-        selectionStartRef.current = { x: e.clientX, y: e.clientY };
       }
     });
 
     selecto.on('selectEnd', (e: any) => {
       if (isDraggingRef.current) return;
-      
-      selectionStartRef.current = null;
       
       if (e.selected.length === 0 && e.inputEvent) {
         const rect = e.inputEvent.target?.getBoundingClientRect?.();
@@ -264,14 +262,13 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
         ref={wallRef}
         style={{
           position: 'relative',
-          width: wallSize.width,
-          height: wallSize.height,
-          transform: `scale(${scale})`,
-          transformOrigin: 'center center',
+          width: scaledWidth,
+          height: scaledHeight,
           background: 'linear-gradient(135deg, rgba(20, 20, 35, 0.95) 0%, rgba(15, 15, 25, 0.98) 100%)',
           borderRadius: 12,
           boxShadow: '0 25px 80px rgba(0,0,0,0.6), 0 0 1px rgba(255,255,255,0.1) inset',
           border: '1px solid rgba(99, 102, 241, 0.15)',
+          overflow: 'hidden',
         }}
       >
         {cellPositionsCalc.map((cell, index) => (
@@ -279,10 +276,10 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
             key={cell.cellId}
             style={{
               position: 'absolute',
-              left: cell.x,
-              top: cell.y,
-              width: cell.width,
-              height: cell.height,
+              left: cell.x * scale,
+              top: cell.y * scale,
+              width: cell.width * scale,
+              height: cell.height * scale,
               border: '1px solid rgba(99, 102, 241, 0.12)',
               background: index % 2 === 0 
                 ? 'rgba(99, 102, 241, 0.02)' 
@@ -292,14 +289,14 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
           >
             <div style={{
               position: 'absolute',
-              top: 6,
-              left: 6,
-              padding: '3px 8px',
+              top: 4,
+              left: 4,
+              padding: '2px 6px',
               background: 'rgba(0,0,0,0.4)',
-              borderRadius: 6,
-              fontSize: 11,
+              borderRadius: 4,
+              fontSize: 10 * scale,
               color: 'rgba(255,255,255,0.25)',
-              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+              fontFamily: 'ui-monospace, monospace',
               backdropFilter: 'blur(4px)',
             }}>
               {index + 1}
@@ -310,10 +307,14 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
         {windows.map((win) => (
           <VideoWindow
             key={win.id}
-            window={win}
+            window={{
+              ...win,
+              position: [win.position[0] * scale, win.position[1] * scale],
+              size: [win.size[0] * scale, win.size[1] * scale],
+            }}
             scale={1}
-            onMove={(id, pos) => updateWindow(id, { position: pos })}
-            onResize={(id, size) => updateWindow(id, { size })}
+            onMove={(id, pos) => updateWindow(id, { position: [pos[0] / scale, pos[1] / scale] })}
+            onResize={(id, size) => updateWindow(id, { size: [size[0] / scale, size[1] / scale] })}
             onClose={(id) => {
               removeWindow(id);
               onWindowClose?.(id);
