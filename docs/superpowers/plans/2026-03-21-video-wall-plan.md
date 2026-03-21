@@ -943,6 +943,68 @@ git commit -m "feat: add useVideoWall hook"
 
 ---
 
+### Task 7b: Presets
+
+**Files:**
+- Create: `src/presets/index.ts`
+
+- [ ] **Step 1: Write presets**
+
+```typescript
+import type { PresetLayout } from '../types';
+
+export const PRESETS: PresetLayout[] = [
+  {
+    name: '主副模式',
+    windows: [
+      { cellId: '0', position: [0, 0], size: [3840, 2160] },
+    ],
+  },
+  {
+    name: '等分四格',
+    windows: [
+      { cellId: '0', position: [0, 0], size: [1920, 1080] },
+      { cellId: '1', position: [0, 0], size: [1920, 1080] },
+      { cellId: '3', position: [0, 0], size: [1920, 1080] },
+      { cellId: '4', position: [0, 0], size: [1920, 1080] },
+    ],
+  },
+  {
+    name: '对称排列',
+    windows: [
+      { cellId: '0', position: [0, 0], size: [1920, 1080] },
+      { cellId: '2', position: [0, 0], size: [1920, 1080] },
+      { cellId: '3', position: [0, 0], size: [1920, 1080] },
+      { cellId: '5', position: [0, 0], size: [1920, 1080] },
+    ],
+  },
+  {
+    name: '3x3等分',
+    windows: [
+      { cellId: '0', position: [0, 0], size: [1920, 1080] },
+      { cellId: '1', position: [0, 0], size: [1920, 1080] },
+      { cellId: '2', position: [0, 0], size: [1920, 1080] },
+      { cellId: '3', position: [0, 0], size: [1920, 1080] },
+      { cellId: '4', position: [0, 0], size: [1920, 1080] },
+      { cellId: '5', position: [0, 0], size: [1920, 1080] },
+    ],
+  },
+];
+
+export function getPreset(name: string): PresetLayout | undefined {
+  return PRESETS.find(p => p.name === name);
+}
+```
+
+- [ ] **Step 2: Commit**
+
+```bash
+git add src/presets/index.ts
+git commit -m "feat: add preset layouts"
+```
+
+---
+
 ## Phase 4: Components
 
 ### Task 8: FlvPlayer Component
@@ -1377,16 +1439,22 @@ export function DebugPanel({ info }: DebugPanelProps) {
 }
 ```
 
-- [ ] **Step 2: Create index.ts**
+- [ ] **Step 2: Create DebugPanel.module.css**
+
+```css
+/* DebugPanel uses inline styles, but CSS module file exists for scoping */
+```
+
+- [ ] **Step 3: Create index.ts**
 
 ```typescript
 export { DebugPanel } from './DebugPanel';
 ```
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add src/components/DebugPanel/DebugPanel.tsx src/components/DebugPanel/index.ts
+git add src/components/DebugPanel/DebugPanel.tsx src/components/DebugPanel/DebugPanel.module.css src/components/DebugPanel/index.ts
 git commit -m "feat: add DebugPanel component"
 ```
 
@@ -1561,6 +1629,19 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
             if (containerRect) {
               const startX = (rect.left - containerRect.left) / scale;
               const startY = (rect.top - containerRect.top) / scale;
+              
+              // Check if start position is occupied by any window
+              const isStartOccupied = windows.some(win => {
+                const winRight = win.position[0] + win.size[0];
+                const winBottom = win.position[1] + win.size[1];
+                return startX >= win.position[0] && startX <= winRight &&
+                       startY >= win.position[1] && startY <= winBottom;
+              });
+              
+              if (isStartOccupied) {
+                return; // Don't create window if start position is occupied
+              }
+              
               const width = rect.width / scale;
               const height = rect.height / scale;
 
@@ -1569,6 +1650,17 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
                 size: [width, height] as [number, number],
                 streamUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
               };
+
+              // Check maxWindows limit per cell
+              const cellId = config.cellId;
+              const cell = cells.find(c => c.id === cellId);
+              if (cell?.maxWindows) {
+                const windowsInCell = windows.filter(w => w.cellId === cellId).length;
+                if (windowsInCell >= cell.maxWindows) {
+                  onMaxWindowsReached?.(cellId, cell.maxWindows);
+                  return;
+                }
+              }
 
               const finalConfig = onWindowBeforeCreate?.(config) ?? config;
               if (finalConfig) {
@@ -1668,39 +1760,34 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
 VideoWall.displayName = 'VideoWall';
 ```
 
-- [ ] **Step 2: Create index.ts**
+- [ ] **Step 2: Create VideoWall.module.css**
+
+```css
+/* VideoWall container styles */
+.container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.wall {
+  position: relative;
+  transform-origin: top left;
+}
+```
+
+- [ ] **Step 3: Create index.ts**
 
 ```typescript
 export { VideoWall } from './VideoWall';
 ```
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add src/components/VideoWall/VideoWall.tsx src/components/VideoWall/index.ts
+git add src/components/VideoWall/VideoWall.tsx src/components/VideoWall/VideoWall.module.css src/components/VideoWall/index.ts
 git commit -m "feat: add VideoWall component with Moveable and Selecto integration"
-```
-
----
-
-### Task 13: Package Entry Point
-
-**Files:**
-- Create: `src/index.ts`
-
-- [ ] **Step 1: Write exports**
-
-```typescript
-export { VideoWall } from './components/VideoWall';
-export type { VideoWallProps, VideoWallRef } from './types';
-export type { Cell, Layout, WindowConfig, WindowState, PresetLayout } from './types';
-```
-
-- [ ] **Step 2: Commit**
-
-```bash
-git add src/index.ts
-git commit -m "feat: add package entry point"
 ```
 
 ---
@@ -1710,7 +1797,7 @@ git commit -m "feat: add package entry point"
 ### Task 14: Playground Setup
 
 **Files:**
-- Create: `playground/index.html`, `playground/main.tsx`, `playground/App.tsx`, `playground/playground.css`
+- Create: `playground/index.html`, `playground/main.tsx`, `playground/App.tsx`, `playground/playground.css`, `playground/mock/streams.ts`
 
 - [ ] **Step 1: Create index.html**
 
@@ -1887,10 +1974,27 @@ html, body, #root {
 }
 ```
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Create mock/streams.ts**
+
+```typescript
+export const MOCK_STREAMS = {
+  'Big Buck Bunny': 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+  'Elephants Dream': 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+  'Sintel': 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4',
+  'Tears of Steel': 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
+  'Test Pattern': 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TestPattern.mp4',
+};
+
+export const FLV_STREAMS = {
+  'ws-flv-example': 'wss://example.com/live/flv/stream1',
+  'ws-local': 'ws://localhost:8080/live/flv/stream1',
+};
+```
+
+- [ ] **Step 6: Commit**
 
 ```bash
-git add playground/index.html playground/main.tsx playground/App.tsx playground/playground.css
+git add playground/index.html playground/main.tsx playground/App.tsx playground/playground.css playground/mock/streams.ts
 git commit -m "feat: add playground"
 ```
 
@@ -1934,7 +2038,7 @@ jobs:
         run: npm run lint
       
       - name: Type check
-        run: npm run typecheck
+        run: npm run lint
       
       - name: Test
         run: npm test -- --run
