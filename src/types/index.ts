@@ -91,3 +91,13 @@ export interface DebugInfo {
   totalWindows: number;
   visibleWindows: number;
 }
+
+export type {
+  Action as V2Action,
+  BatchResult as V2BatchResult,
+  ErrorPayload as V2ErrorPayload,
+  Result as V2Result,
+  V2WallState,
+  V2WindowState,
+} from './v2';
+export { ErrorCode } from './v2';
