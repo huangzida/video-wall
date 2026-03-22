@@ -39,7 +39,6 @@ export default function App() {
   const wallRef = useRef<VideoWallRef>(null);
   
   const [layout, setLayout] = useState<Layout>({ rows: 2, cols: 3 });
-  const cells = useMemo(() => generateCells(layout.rows, layout.cols, cellMaxWindows), [layout.rows, layout.cols, cellMaxWindows]);
   const [gap, setGap] = useState(4);
   const [scaleMode, setScaleMode] = useState<'contain' | 'cover' | 'original' | 'custom'>('contain');
   const [customScale, setCustomScale] = useState(1);
@@ -55,14 +54,16 @@ export default function App() {
   const [totalWindows, setTotalWindows] = useState(0);
   const [activeWindows, setActiveWindows] = useState(0);
   const [currentScale, setCurrentScale] = useState(1);
+  const [cellMaxWindows, setCellMaxWindows] = useState<number | undefined>(undefined);
+  const [minWindowSize, setMinWindowSize] = useState(200);
+  const [snapGridSize, setSnapGridSize] = useState(10);
+  const [maxWindowsNotification, setMaxWindowsNotification] = useState<string | null>(null);
   const [activeWindowId, setActiveWindowId] = useState<string | null>(null);
   const [activeWindowLocked, setActiveWindowLocked] = useState(false);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [wallSize, setWallSize] = useState({ width: 0, height: 0 });
-  const [minWindowSize, setMinWindowSize] = useState(200);
-  const [snapGridSize, setSnapGridSize] = useState(10);
-  const [cellMaxWindows, setCellMaxWindows] = useState<number | undefined>(undefined);
-  const [maxWindowsNotification, setMaxWindowsNotification] = useState<string | null>(null);
+
+  const cells = useMemo(() => generateCells(layout.rows, layout.cols, cellMaxWindows), [layout.rows, layout.cols, cellMaxWindows]);
 
   const handleAddWindow = useCallback(() => {
     const x = Math.random() * 500;

@@ -363,11 +363,6 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
       }
 
       const windowEl = target.closest('[data-window-id]') as HTMLElement | null;
-      const cellEl = target.closest('[data-cell-id]') as HTMLElement | null;
-
-      if (cellEl) {
-        return;
-      }
 
       if (!windowEl) {
         const wallRect = wallRef.current?.getBoundingClientRect();
@@ -516,6 +511,7 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
                 ? 'rgba(99, 102, 241, 0.02)' 
                 : 'rgba(168, 85, 247, 0.015)',
               boxSizing: 'border-box',
+              pointerEvents: 'none',
             }}
           >
             <div style={{
