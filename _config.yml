@@ -1,0 +1,7 @@
+exclude:
+  - docs/
+  - node_modules/
+  - dist/
+  - "*.test.ts"
+  - "*.test.tsx"
+  - "*.md"
