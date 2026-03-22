@@ -1,6 +1,7 @@
 {
   "name": "video-wall",
   "version": "0.0.1",
+  "packageManager": "pnpm@10.32.1",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
