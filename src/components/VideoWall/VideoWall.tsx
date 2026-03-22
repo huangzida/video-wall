@@ -12,6 +12,7 @@ import { useVideoWall } from '../../hooks/useVideoWall';
 import type { VideoWallProps, VideoWallRef } from '../../types';
 import { getRectCenter } from '../../utils/coordinate';
 import { calculateCellPositions, findCellAtPosition } from '../../utils/layout';
+import { resolveEmptyAreaDragMode } from '../../engines/interactionEngine';
 
 function snapToGrid(value: number, gridSize: number, threshold: number = 5): number {
   if (!gridSize || gridSize <= 0) return value;
@@ -83,10 +84,12 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
     isSelecting: boolean;
     startX: number;
     startY: number;
+    mode: 'create' | 'select';
   }>({
     isSelecting: false,
     startX: 0,
     startY: 0,
+    mode: 'create',
   });
 
   const {
@@ -285,6 +288,32 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
           const w = width / scale;
           const h = height / scale;
 
+          if (selection.mode === 'select') {
+            const matched = windows
+              .filter(win => {
+                const winLeft = win.position[0];
+                const winTop = win.position[1];
+                const winRight = winLeft + win.size[0];
+                const winBottom = winTop + win.size[1];
+                const selRight = x + w;
+                const selBottom = y + h;
+                return !(winRight < x || winLeft > selRight || winBottom < y || winTop > selBottom);
+              })
+              .sort((a, b) => b.zIndex - a.zIndex);
+
+            if (matched[0]) {
+              activateWindow(matched[0].id);
+              setSelectedTarget(matched[0].id);
+            }
+
+            selEl.remove();
+            selection.isSelecting = false;
+            selection.startX = 0;
+            selection.startY = 0;
+            selection.mode = 'create';
+            return;
+          }
+
           if (w >= minSelectionSize && h >= minSelectionSize) {
             const isOccupied = windows.some(win => {
               return x >= win.position[0] && x <= win.position[0] + win.size[0] &&
@@ -396,6 +425,7 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
           isSelecting: true,
           startX: relativeX,
           startY: relativeY,
+          mode: resolveEmptyAreaDragMode(e.shiftKey),
         };
 
         const existingSel = wallRef.current?.querySelector('.selection-box');

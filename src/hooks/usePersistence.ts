@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { WindowState, Layout } from '../types';
+import { restoreWithFallback, type SnapshotPayload } from '../engines/persistenceEngine';
 
 interface PersistenceConfig {
   enabled: boolean;
@@ -8,6 +9,7 @@ interface PersistenceConfig {
 }
 
 interface PersistenceData {
+  schemaVersion?: number;
   layout: Layout;
   windows: WindowState[];
 }
@@ -43,11 +45,22 @@ export function usePersistence(
       const data = window[storage].getItem(key);
       if (data) {
         const parsed: PersistenceData = JSON.parse(data);
-        if (parsed.windows?.length > 0) {
-          setWindowsRef.current(parsed.windows);
+        const restored = restoreWithFallback(
+          {
+            schemaVersion: parsed.schemaVersion ?? 1,
+            layout: parsed.layout,
+            windows: parsed.windows,
+          } as SnapshotPayload,
+          3
+        );
+
+        const effective = restored.ok ? restored.data : (restored.error.detail as any).fallback;
+
+        if (effective.windows?.length > 0) {
+          setWindowsRef.current(effective.windows);
         }
-        if (parsed.layout) {
-          setLayoutRef.current(parsed.layout);
+        if (effective.layout) {
+          setLayoutRef.current(effective.layout);
         }
       }
     } catch (e) {}

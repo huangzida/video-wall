@@ -14,6 +14,7 @@
 
 ### 交互
 - **框选新建**：在空白区域拖动绘制矩形创建新窗口
+- **建窗/框选分离语义**：空白区域拖动默认建窗；按住 `Shift` 拖动进入框选多选模式
 - **拖拽移动**：在墙内自由拖动窗口
 - **8方向调整大小**：通过边缘和角落调整大小
 - **吸附对齐**：拖拽/调整时自动吸附到网格
@@ -129,7 +130,54 @@ wallRef.current?.applyPreset('四格布局');
 
 // 获取当前缩放值
 const scale = wallRef.current?.getScale();
+
+// V2 统一 API（受 feature flag 控制）
+const result = wallRef.current?.dispatch?.({
+  type: 'window.create',
+  config: {
+    id: 'w-1',
+    bounds: { x: 0, y: 0, width: 320, height: 180 },
+    zIndex: 1,
+    locked: false,
+    collapsed: false,
+    lifecycle: 'idle',
+    stream: { url: 'https://example.com/a.mp4', kind: 'mp4' },
+    priority: 0,
+  },
+});
+
+const state = wallRef.current?.getState?.();
+const unsubscribe = wallRef.current?.subscribe?.((event) => {
+  console.log(event);
+});
 ```
+
+## V2 PlaygroundLab
+
+Playground 内置 6 个实时调试面板：
+- Interaction Lab
+- Layout Lab
+- Window Lab
+- API Lab
+- History Lab
+- Persistence Lab
+
+预置演示场景：
+- Stress 100 Windows
+- Focus + Side
+- Conflict Recovery
+- Undo/Redo Torture
+
+## V2 Feature Flag
+
+V2 能力通过以下开关启用：
+- `FF_HISTORY_STACK`
+- `FF_ZONE_SUPPORT`
+- `FF_GROUP_OPERATIONS`
+- `FF_LAYOUT_STRATEGIES`
+- `FF_PERSISTENCE_V2`
+- `FF_UNIFIED_API`
+- `FF_PLAYGROUND_LAB`
 
 ### Cell 接口
 

@@ -14,6 +14,7 @@ React NPM package for video wall display and interaction with draggable windows,
 
 ### Interaction
 - **Box selection**: Draw a rectangle on empty space to create new windows
+- **Create-vs-select semantics**: Empty-area drag creates windows by default; hold `Shift` while dragging to use select-box mode
 - **Drag & drop**: Move windows freely within the wall bounds
 - **8-direction resize**: Resize windows via edge and corner handles
 - **Snap-to-grid**: Optional alignment to grid during drag/resize
@@ -129,7 +130,54 @@ wallRef.current?.applyPreset('Four Grid');
 
 // Get current scale
 const scale = wallRef.current?.getScale();
+
+// V2 unified API (feature-flagged)
+const result = wallRef.current?.dispatch?.({
+  type: 'window.create',
+  config: {
+    id: 'w-1',
+    bounds: { x: 0, y: 0, width: 320, height: 180 },
+    zIndex: 1,
+    locked: false,
+    collapsed: false,
+    lifecycle: 'idle',
+    stream: { url: 'https://example.com/a.mp4', kind: 'mp4' },
+    priority: 0,
+  },
+});
+
+const state = wallRef.current?.getState?.();
+const unsubscribe = wallRef.current?.subscribe?.((event) => {
+  console.log(event);
+});
 ```
+
+## V2 PlaygroundLab
+
+Playground includes six labs for realtime debugging and demo validation:
+- Interaction Lab
+- Layout Lab
+- Window Lab
+- API Lab
+- History Lab
+- Persistence Lab
+
+Preset scenarios:
+- Stress 100 Windows
+- Focus + Side
+- Conflict Recovery
+- Undo/Redo Torture
+
+## Feature Flags (V2)
+
+V2 capabilities are gated by feature flags:
+- `FF_HISTORY_STACK`
+- `FF_ZONE_SUPPORT`
+- `FF_GROUP_OPERATIONS`
+- `FF_LAYOUT_STRATEGIES`
+- `FF_PERSISTENCE_V2`
+- `FF_UNIFIED_API`
+- `FF_PLAYGROUND_LAB`
 
 ### Cell Interface
 
