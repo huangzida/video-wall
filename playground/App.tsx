@@ -1,6 +1,13 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { VideoWall } from '../src';
 import type { VideoWallRef, Cell, Layout, PresetLayout, WindowConfig } from '../src';
+import { InteractionLab } from './labs/InteractionLab';
+import { LayoutLab } from './labs/LayoutLab';
+import { WindowLab } from './labs/WindowLab';
+import { ApiLab } from './labs/ApiLab';
+import { HistoryLab } from './labs/HistoryLab';
+import { PersistenceLab } from './labs/PersistenceLab';
+import { SCENARIOS } from './mock/scenarios';
 
 const MOCK_STREAMS = [
   { label: 'Big Buck Bunny', url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4' },
@@ -63,6 +70,9 @@ export default function App() {
   const [activeWindowLocked, setActiveWindowLocked] = useState(false);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [wallSize, setWallSize] = useState({ width: 0, height: 0 });
+  const [shiftSelectEnabled, setShiftSelectEnabled] = useState(true);
+  const [layoutStrategy, setLayoutStrategy] = useState<'free' | 'smart-grid' | 'focus-side' | 'pip'>('free');
+  const [activeLab, setActiveLab] = useState<'interaction' | 'layout' | 'window' | 'api' | 'history' | 'persistence'>('interaction');
 
   const cells = useMemo(() => generateCells(layout.rows, layout.cols, cellMaxWindows), [layout.rows, layout.cols, cellMaxWindows]);
 
@@ -126,6 +136,30 @@ export default function App() {
     }, 100);
     return () => clearInterval(interval);
   }, []);
+
+  const handleLoadScenario = useCallback((scenarioId: string) => {
+    if (scenarioId === 'focus-side') {
+      handleApplyPreset('单窗口');
+      return;
+    }
+
+    if (scenarioId === 'undo-redo-torture') {
+      setDebug(true);
+      return;
+    }
+
+    if (scenarioId === 'stress-100') {
+      for (let i = 0; i < 10; i += 1) {
+        handleAddWindow();
+      }
+      return;
+    }
+
+    if (scenarioId === 'conflict-recovery') {
+      setSnapGridSize(20);
+      setMinWindowSize(240);
+    }
+  }, [handleAddWindow, handleApplyPreset]);
 
   return (
     <div style={{
@@ -476,6 +510,51 @@ export default function App() {
               <StatBox label="总数" value={totalWindows} />
               <StatBox label="激活" value={activeWindows} />
               <StatBox label="缩放" value={currentScale.toFixed(3)} />
+            </div>
+          </Section>
+
+          <Section title="Playground Lab">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+              <button style={secondaryButton} onClick={() => setActiveLab('interaction')}>Interaction</button>
+              <button style={secondaryButton} onClick={() => setActiveLab('layout')}>Layout</button>
+              <button style={secondaryButton} onClick={() => setActiveLab('window')}>Window</button>
+              <button style={secondaryButton} onClick={() => setActiveLab('api')}>API</button>
+              <button style={secondaryButton} onClick={() => setActiveLab('history')}>History</button>
+              <button style={secondaryButton} onClick={() => setActiveLab('persistence')}>Persistence</button>
+            </div>
+
+            {activeLab === 'interaction' && (
+              <InteractionLab onToggleShiftSelect={setShiftSelectEnabled} />
+            )}
+            {activeLab === 'layout' && (
+              <LayoutLab onApplyStrategy={setLayoutStrategy} />
+            )}
+            {activeLab === 'window' && (
+              <WindowLab
+                onGroupSelected={() => setDebug(true)}
+                onUngroupSelected={() => setDebug(false)}
+              />
+            )}
+            {activeLab === 'api' && (
+              <ApiLab onDispatchSampleAction={() => setShowCollapse(prev => !prev)} />
+            )}
+            {activeLab === 'history' && (
+              <HistoryLab
+                onUndo={() => setWindowCount(prev => Math.max(0, prev - 1))}
+                onRedo={() => setWindowCount(prev => prev + 1)}
+              />
+            )}
+            {activeLab === 'persistence' && (
+              <PersistenceLab
+                scenarios={SCENARIOS}
+                onLoadScenario={handleLoadScenario}
+                onReset={handleClearAll}
+              />
+            )}
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <StatBox label="Shift框选" value={shiftSelectEnabled ? '开' : '关'} />
+              <StatBox label="布局策略" value={layoutStrategy} />
             </div>
           </Section>
         </aside>
