@@ -1,20 +1,44 @@
 # Video Wall
 
-React NPM package for video wall display and interaction with draggable windows, box selection, and multi-stream support.
+A React NPM package for building video wall display and interaction systems with draggable windows, box selection, and multi-stream support.
 
 ## Features
 
-- Multi-cell video wall layout
-- Draggable and resizable windows with Moveable
-- Box selection for creating new windows with Selecto
-- Support for ws-flv (flv.js) and mp4 (HTML5 Video) streams
-- Window z-index management (click/drag to top)
-- Drag window out of bounds to delete
-- Window locking
-- Visibility-based video pause (IntersectionObserver)
-- Persistence (localStorage)
-- Debug panel
-- Full TypeScript support
+### Layout
+- Multi-cell video wall layout with configurable rows and columns
+- Gap support between cells
+- Multiple scale modes: contain, cover, original, custom
+- Background color and image support
+
+### Interaction
+- **Box selection**: Draw a rectangle on empty space to create new windows
+- **Drag & drop**: Move windows freely within the wall bounds
+- **8-direction resize**: Resize windows via edge and corner handles
+- **Snap-to-grid**: Optional alignment to grid during drag/resize
+- **Click to activate**: Click a window to bring it to front
+- **Delete key**: Press Delete to remove selected window
+- **Drag out to delete**: Drag window outside wall bounds to remove it
+
+### Window Management
+- Window locking (prevents drag/resize)
+- Title bar collapse/expand (optional, disabled by default)
+- Max windows per cell limit
+- Window z-index management
+
+### Video Support
+- ws-flv streams via flv.js
+- mp4 streams via HTML5 Video
+- Automatic stream type detection
+- Visibility-based video pause ( IntersectionObserver)
+- Loading, playing, paused, and error states
+
+### State & Persistence
+- localStorage persistence (optional)
+- Debug panel showing scale, viewport, window count
+
+### Developer Tools
+- Comprehensive TypeScript support
+- Debug panel for monitoring internal state
 
 ## Installation
 
@@ -45,6 +69,7 @@ function App() {
       scaleMode="contain"
       debug
       onWindowCreate={(win) => console.log('Window created:', win)}
+      onWindowClose={(id) => console.log('Window closed:', id)}
     />
   );
 }
@@ -52,7 +77,109 @@ function App() {
 
 ## API
 
-See full API documentation at [docs](./docs/superpowers/specs/).
+### VideoWall Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `layout` | `{ rows: number, cols: number }` | Required | Grid layout |
+| `cells` | `Cell[]` | Required | Cell configurations |
+| `gap` | `number` | `0` | Gap between cells |
+| `background` | `{ color?: string, image?: string }` | - | Wall background |
+| `scaleMode` | `'contain' \| 'cover' \| 'original' \| 'custom'` | `'contain'` | Scale mode |
+| `customScale` | `number` | `1` | Custom scale value |
+| `debug` | `boolean` | `false` | Show debug panel |
+| `showBorder` | `boolean` | `true` | Show window borders |
+| `showTitle` | `boolean` | `true` | Show window titles |
+| `showCollapse` | `boolean` | `false` | Enable title bar collapse |
+| `persistence` | `{ enabled: boolean, storage?: 'localStorage' \| 'sessionStorage', key?: string }` | - | Persistence config |
+| `presets` | `PresetLayout[]` | - | Preset layouts |
+| `onLayoutChange` | `(layout: Layout) => void` | - | Layout change callback |
+| `onWindowCreate` | `(window: WindowConfig) => void` | - | Window create callback |
+| `onWindowBeforeCreate` | `(config: Partial<WindowConfig>) => Partial<WindowConfig> \| null` | - | Pre-create hook |
+| `onWindowClose` | `(id: string) => void` | - | Window close callback |
+| `onWindowActive` | `(id: string) => void` | - | Window activate callback |
+| `onMaxWindowsReached` | `(cellId: string, maxWindows: number) => void` | - | Max windows callback |
+
+### VideoWallRef (Imperative API)
+
+```tsx
+const wallRef = useRef<VideoWallRef>(null);
+
+// Add a window
+wallRef.current?.addWindow({
+  position: [100, 100],
+  size: [400, 300],
+  streamUrl: 'https://example.com/video.mp4',
+  title: 'Camera 1',
+});
+
+// Remove a window
+wallRef.current?.removeWindow(windowId);
+
+// Update window properties
+wallRef.current?.updateWindow(windowId, { locked: true });
+
+// Get all windows
+const windows = wallRef.current?.getWindows();
+
+// Apply preset layout
+wallRef.current?.applyPreset('Four Grid');
+
+// Get current scale
+const scale = wallRef.current?.getScale();
+```
+
+### Cell Interface
+
+```tsx
+interface Cell {
+  id: string;
+  width: number;    // Logical pixel width
+  height: number;    // Logical pixel height
+  maxWindows?: number; // Max windows per cell
+}
+```
+
+### WindowConfig Interface
+
+```tsx
+interface WindowConfig {
+  id: string;
+  cellId: string;
+  position: [number, number];  // x, y in logical pixels
+  size: [number, number];     // width, height in logical pixels
+  streamUrl: string;
+  title?: string;
+  locked?: boolean;
+  border?: {
+    color?: string;
+    width?: number;
+    radius?: number;
+  };
+  minSize?: [number, number];
+  snapGrid?: number;
+}
+```
+
+## Architecture
+
+```
+VideoWall (main container)
+├── Layout layer - renders cells grid
+├── Window layer - native mouse events for drag/resize
+├── Selection layer - native mouse events for box selection
+└── Video layer - FlvPlayer / Mp4Player instances
+
+VideoWindow - display layer, driven by native events
+FlvPlayer - flv.js wrapper for ws-flv streams
+Mp4Player - HTML5 Video wrapper for mp4 streams
+```
+
+## Coordinate System
+
+- **Logical coordinates**: Window position/size always in logical pixels
+- **Screen coordinates**: Converted internally using scale factor
+- Scale factor: `scale = containerSize / logicalSize`
 
 ## License
 

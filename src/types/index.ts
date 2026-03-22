@@ -30,6 +30,7 @@ export interface WindowConfig {
 export interface WindowState extends WindowConfig {
   zIndex: number;
   isActive: boolean;
+  collapsed?: boolean;
 }
 
 export interface PresetLayout {
@@ -38,6 +39,7 @@ export interface PresetLayout {
     cellId: string;
     position: [number, number];
     size: [number, number];
+    streamUrl?: string;
   }[];
 }
 
@@ -49,6 +51,9 @@ export interface VideoWallProps {
   scaleMode?: 'contain' | 'cover' | 'original' | 'custom';
   customScale?: number;
   debug?: boolean;
+  showBorder?: boolean;
+  showTitle?: boolean;
+  showCollapse?: boolean;
   persistence?: {
     enabled: boolean;
     storage?: 'localStorage' | 'sessionStorage';

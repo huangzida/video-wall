@@ -46,6 +46,7 @@ export function useVideoWall(props: Omit<VideoWallProps, 'ref'>, containerRef: R
 
   const addWindow = useCallback((config: Partial<WindowConfig>): string | null => {
     const id = `window-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const maxZ = getMaxZIndex();
     
     const newWindow: WindowState = {
       id,
@@ -58,11 +59,12 @@ export function useVideoWall(props: Omit<VideoWallProps, 'ref'>, containerRef: R
       border: config.border,
       minSize: config.minSize ?? [200, 150],
       snapGrid: config.snapGrid ?? 10,
-      zIndex: getMaxZIndex() + 1,
+      zIndex: maxZ + 1,
       isActive: true,
+      collapsed: false,
     };
 
-    setWindows(prev => [...prev, newWindow]);
+    setWindows(prev => [...prev.map(w => ({ ...w, isActive: false })), newWindow]);
     return id;
   }, [cells, getMaxZIndex]);
 
@@ -92,13 +94,36 @@ export function useVideoWall(props: Omit<VideoWallProps, 'ref'>, containerRef: R
     if (!preset) return;
 
     setWindows([]);
-    preset.windows.forEach(winConfig => {
+    
+    const positions = calculateCellPositions(cells, layout, gap);
+    if (positions.length === 0) return;
+    
+    const defaultStreamUrl = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+    
+    preset.windows.forEach((winConfig, index) => {
+      const cellIndex = parseInt(winConfig.cellId) || index;
+      const cellPos = positions[cellIndex] || positions[0];
+      
+      if (!cellPos) return;
+      
+      const position: [number, number] = [
+        cellPos.x,
+        cellPos.y,
+      ];
+      const size: [number, number] = [
+        cellPos.width,
+        cellPos.height,
+      ];
+      
       addWindow({
         ...winConfig,
-        cellId: winConfig.cellId,
+        position,
+        size,
+        cellId: winConfig.cellId || String(cellIndex),
+        streamUrl: winConfig.streamUrl || defaultStreamUrl,
       });
     });
-  }, [props.presets, addWindow]);
+  }, [props.presets, addWindow, cells, layout, wallSize, gap]);
 
   const handleContainerResize = useCallback(() => {
     if (containerRef.current) {
