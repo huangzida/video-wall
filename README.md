@@ -1,6 +1,8 @@
 # Video Wall
 
-A React NPM package for building video wall display and interaction systems with draggable windows, box selection, and multi-stream support.
+React NPM package for video wall display and interaction with draggable windows, box selection, and multi-stream support.
+
+[中文文档](./README_zh.md)
 
 ## Features
 
