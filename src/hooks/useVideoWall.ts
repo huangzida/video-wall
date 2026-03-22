@@ -36,9 +36,19 @@ export function useVideoWall(props: Omit<VideoWallProps, 'ref'>, containerRef: R
     isFromInternalRef.current = false;
   }, [propLayout]);
 
+  const handleSetLayout = useCallback((newLayout: Layout) => {
+    isFromInternalRef.current = true;
+    pendingLayoutRef.current = newLayout;
+    setLayout(newLayout);
+    const currentPropLayout = propLayoutRef.current;
+    if (currentPropLayout.rows !== newLayout.rows || currentPropLayout.cols !== newLayout.cols) {
+      onLayoutChange?.(newLayout);
+    }
+  }, [onLayoutChange]);
+
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
-  usePersistence(persistence, windows, layout, setWindows, setLayout);
+  usePersistence(persistence, windows, layout, setWindows, handleSetLayout);
 
   const cellPositions = useMemo(
     () => calculateCellPositions(cells, layout, gap),
@@ -100,16 +110,6 @@ export function useVideoWall(props: Omit<VideoWallProps, 'ref'>, containerRef: R
         : { ...w, isActive: false }
     ));
   }, [getMaxZIndex]);
-
-  const handleSetLayout = useCallback((newLayout: Layout) => {
-    isFromInternalRef.current = true;
-    pendingLayoutRef.current = newLayout;
-    setLayout(newLayout);
-    const currentPropLayout = propLayoutRef.current;
-    if (currentPropLayout.rows !== newLayout.rows || currentPropLayout.cols !== newLayout.cols) {
-      onLayoutChange?.(newLayout);
-    }
-  }, [onLayoutChange]);
 
   const applyPreset = useCallback((presetName: string) => {
     const preset = props.presets?.find(p => p.name === presetName);
