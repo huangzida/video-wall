@@ -8,6 +8,8 @@ import type {
 } from '../types';
 import { usePersistence } from './usePersistence';
 import { getWallSize, calculateCellPositions, calculateScale } from '../utils/layout';
+import { useVideoWallV2 } from './useVideoWallV2';
+import { isFeatureEnabled } from '../featureFlags';
 
 export function useVideoWall(props: Omit<VideoWallProps, 'ref'>, containerRef: React.RefObject<HTMLDivElement | null>) {
   const {
@@ -37,6 +39,7 @@ export function useVideoWall(props: Omit<VideoWallProps, 'ref'>, containerRef: R
   }, [propLayout]);
 
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const v2 = useVideoWallV2(propLayout);
 
   usePersistence(persistence, windows, layout, setWindows, setLayout);
 
@@ -169,5 +172,13 @@ export function useVideoWall(props: Omit<VideoWallProps, 'ref'>, containerRef: R
     containerRef,
     handleContainerResize,
     layout,
+    ...(isFeatureEnabled('FF_UNIFIED_API')
+      ? {
+          dispatch: v2.dispatch,
+          batch: v2.batch,
+          getState: v2.getState,
+          subscribe: v2.subscribe,
+        }
+      : {}),
   };
 }
