@@ -54,6 +54,9 @@ export interface VideoWallProps {
   showBorder?: boolean;
   showTitle?: boolean;
   showCollapse?: boolean;
+  minSelectionSize?: number;
+  defaultMinSize?: [number, number];
+  defaultSnapGrid?: number;
   persistence?: {
     enabled: boolean;
     storage?: 'localStorage' | 'sessionStorage';

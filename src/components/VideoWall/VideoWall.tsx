@@ -12,9 +12,8 @@ import type { VideoWallProps, VideoWallRef } from '../../types';
 import { getRectCenter } from '../../utils/coordinate';
 import { calculateCellPositions, findCellAtPosition } from '../../utils/layout';
 
-const MIN_SELECTION_SIZE = 20;
-
 function snapToGrid(value: number, gridSize: number, threshold: number = 5): number {
+  if (!gridSize || gridSize <= 0) return value;
   const snapped = Math.round(value / gridSize) * gridSize;
   if (Math.abs(snapped - value) <= threshold) {
     return snapped;
@@ -32,6 +31,9 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
     showBorder = true,
     showTitle = true,
     showCollapse = false,
+    minSelectionSize = 20,
+    defaultMinSize = [100, 75],
+    defaultSnapGrid = 10,
     onLayoutChange,
     onWindowCreate,
     onWindowBeforeCreate,
@@ -57,6 +59,8 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
     initialHeight: number;
     resizeDir: string | null;
     snapGrid: number;
+    minWidth: number;
+    minHeight: number;
   }>({
     isDragging: false,
     isResizing: false,
@@ -70,6 +74,8 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
     initialHeight: 0,
     resizeDir: null,
     snapGrid: 10,
+    minWidth: 100,
+    minHeight: 75,
   });
 
   const selectionRef = useRef<{
@@ -143,14 +149,14 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
 
         const dir = drag.resizeDir;
 
-        if (dir?.includes('e')) newWidth = Math.max(100, drag.initialWidth + dx);
+        if (dir?.includes('e')) newWidth = Math.max(drag.minWidth, drag.initialWidth + dx);
         if (dir?.includes('w')) {
-          newWidth = Math.max(100, drag.initialWidth - dx);
+          newWidth = Math.max(drag.minWidth, drag.initialWidth - dx);
           newLeft = drag.initialLeft + dx;
         }
-        if (dir?.includes('s')) newHeight = Math.max(75, drag.initialHeight + dy);
+        if (dir?.includes('s')) newHeight = Math.max(drag.minHeight, drag.initialHeight + dy);
         if (dir?.includes('n')) {
-          newHeight = Math.max(75, drag.initialHeight - dy);
+          newHeight = Math.max(drag.minHeight, drag.initialHeight - dy);
           newTop = drag.initialTop + dy;
         }
 
@@ -270,7 +276,7 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
           const w = width / scale;
           const h = height / scale;
 
-          if (w >= MIN_SELECTION_SIZE && h >= MIN_SELECTION_SIZE) {
+          if (w >= minSelectionSize && h >= minSelectionSize) {
             const isOccupied = windows.some(win => {
               return x >= win.position[0] && x <= win.position[0] + win.size[0] &&
                      y >= win.position[1] && y <= win.position[1] + win.size[1];
@@ -304,6 +310,8 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
                 streamUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
                 title: `Window ${windows.length + 1}`,
                 cellId: cell?.cellId ?? '',
+                minSize: defaultMinSize,
+                snapGrid: defaultSnapGrid,
               };
 
               const finalConfig = onWindowBeforeCreate?.(config) ?? config;
@@ -358,6 +366,8 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
           initialHeight: parseFloat(windowEl.style.height || '0') / scale,
           resizeDir: resizeHandle.getAttribute('data-resize-dir'),
           snapGrid: win?.snapGrid ?? 10,
+          minWidth: win?.minSize?.[0] ?? 100,
+          minHeight: win?.minSize?.[1] ?? 75,
         };
         return;
       }
@@ -365,6 +375,8 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
       const windowEl = target.closest('[data-window-id]') as HTMLElement | null;
 
       if (!windowEl) {
+        e.preventDefault();
+        
         const wallRect = wallRef.current?.getBoundingClientRect();
         if (!wallRect) return;
 
@@ -420,6 +432,8 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
         initialHeight: 0,
         resizeDir: null,
         snapGrid: win?.snapGrid ?? 10,
+        minWidth: win?.minSize?.[0] ?? 100,
+        minHeight: win?.minSize?.[1] ?? 75,
       };
     };
 

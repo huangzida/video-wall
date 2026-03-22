@@ -57,6 +57,7 @@ export default function App() {
   const [cellMaxWindows, setCellMaxWindows] = useState<number | undefined>(undefined);
   const [minWindowSize, setMinWindowSize] = useState(200);
   const [snapGridSize, setSnapGridSize] = useState(10);
+  const [minSelectionSize, setMinSelectionSize] = useState(20);
   const [maxWindowsNotification, setMaxWindowsNotification] = useState<string | null>(null);
   const [activeWindowId, setActiveWindowId] = useState<string | null>(null);
   const [activeWindowLocked, setActiveWindowLocked] = useState(false);
@@ -265,6 +266,9 @@ export default function App() {
               showBorder={showBorder}
               showTitle={showTitle}
               showCollapse={showCollapse}
+              minSelectionSize={minSelectionSize}
+              defaultMinSize={[minWindowSize, minWindowSize * 0.75]}
+              defaultSnapGrid={snapGridSize}
               presets={PRESETS}
               persistence={persistenceEnabled ? { enabled: true, key: 'video-wall-state' } : undefined}
               onLayoutChange={l => {
@@ -406,7 +410,7 @@ export default function App() {
               <span style={labelText}>最小尺寸</span>
               <input 
                 type="number" 
-                min={50} max={500}
+                min={50}
                 value={minWindowSize}
                 onChange={e => setMinWindowSize(parseInt(e.target.value) || 200)}
                 style={inputStyle}
@@ -419,6 +423,16 @@ export default function App() {
                 min={0} max={100}
                 value={snapGridSize}
                 onChange={e => setSnapGridSize(parseInt(e.target.value) || 0)}
+                style={inputStyle}
+              />
+            </label>
+            <label style={labelStyle}>
+              <span style={labelText}>框选最小</span>
+              <input 
+                type="number" 
+                min={5}
+                value={minSelectionSize}
+                onChange={e => setMinSelectionSize(parseInt(e.target.value) || 20)}
                 style={inputStyle}
               />
             </label>
