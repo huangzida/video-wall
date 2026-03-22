@@ -1,4 +1,5 @@
 import React from 'react';
+import { labButtonStyle, labSectionStyle, labTitleStyle } from './styles';
 
 interface InteractionLabProps {
   onToggleShiftSelect: (enabled: boolean) => void;
@@ -6,10 +7,10 @@ interface InteractionLabProps {
 
 export function InteractionLab({ onToggleShiftSelect }: InteractionLabProps) {
   return (
-    <section data-testid="lab-interaction" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <h4 style={{ margin: 0, fontSize: 12 }}>Interaction Lab</h4>
-      <button onClick={() => onToggleShiftSelect(true)}>启用 Shift 框选</button>
-      <button onClick={() => onToggleShiftSelect(false)}>禁用 Shift 框选</button>
+    <section data-testid="lab-interaction" style={labSectionStyle}>
+      <h4 style={labTitleStyle}>Interaction Lab</h4>
+      <button style={labButtonStyle} onClick={() => onToggleShiftSelect(true)}>启用 Shift 框选</button>
+      <button style={labButtonStyle} onClick={() => onToggleShiftSelect(false)}>禁用 Shift 框选</button>
     </section>
   );
 }

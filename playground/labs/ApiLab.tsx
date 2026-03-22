@@ -1,4 +1,5 @@
 import React from 'react';
+import { labButtonStyle, labSectionStyle, labTitleStyle } from './styles';
 
 interface ApiLabProps {
   onDispatchSampleAction: () => void;
@@ -6,9 +7,9 @@ interface ApiLabProps {
 
 export function ApiLab({ onDispatchSampleAction }: ApiLabProps) {
   return (
-    <section data-testid="lab-api" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <h4 style={{ margin: 0, fontSize: 12 }}>API Lab</h4>
-      <button onClick={onDispatchSampleAction}>Dispatch Sample Action</button>
+    <section data-testid="lab-api" style={labSectionStyle}>
+      <h4 style={labTitleStyle}>API Lab</h4>
+      <button style={labButtonStyle} onClick={onDispatchSampleAction}>Dispatch Sample Action</button>
     </section>
   );
 }

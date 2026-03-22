@@ -12,16 +12,7 @@ import { useVideoWall } from '../../hooks/useVideoWall';
 import type { VideoWallProps, VideoWallRef } from '../../types';
 import { getRectCenter } from '../../utils/coordinate';
 import { calculateCellPositions, findCellAtPosition } from '../../utils/layout';
-import { resolveEmptyAreaDragMode } from '../../engines/interactionEngine';
-
-function snapToGrid(value: number, gridSize: number, threshold: number = 5): number {
-  if (!gridSize || gridSize <= 0) return value;
-  const snapped = Math.round(value / gridSize) * gridSize;
-  if (Math.abs(snapped - value) <= threshold) {
-    return snapped;
-  }
-  return value;
-}
+import { applyResizePointerAnchor, computeDragPosition, computeResizeRect, resolveEmptyAreaDragMode } from '../../engines/interactionEngine';
 
 export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) => {
   const {
@@ -55,10 +46,18 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
     windowId: string | null;
     startX: number;
     startY: number;
+    pointerOffsetX: number;
+    pointerOffsetY: number;
     initialLeft: number;
     initialTop: number;
     initialWidth: number;
     initialHeight: number;
+    currentLeft: number;
+    currentTop: number;
+    currentWidth: number;
+    currentHeight: number;
+    resizeOffsetX: number;
+    resizeOffsetY: number;
     resizeDir: string | null;
     snapGrid: number;
     minWidth: number;
@@ -70,10 +69,18 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
     windowId: null,
     startX: 0,
     startY: 0,
+    pointerOffsetX: 0,
+    pointerOffsetY: 0,
     initialLeft: 0,
     initialTop: 0,
     initialWidth: 0,
     initialHeight: 0,
+    currentLeft: 0,
+    currentTop: 0,
+    currentWidth: 0,
+    currentHeight: 0,
+    resizeOffsetX: 0,
+    resizeOffsetY: 0,
     resizeDir: null,
     snapGrid: 10,
     minWidth: 100,
@@ -107,6 +114,11 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
     layout,
   } = useVideoWall({ ...props, persistence }, containerRef);
 
+  const windowsRef = useRef(windows);
+  useEffect(() => {
+    windowsRef.current = windows;
+  }, [windows]);
+
   useImperativeHandle(ref, () => ({
     addWindow: (config) => {
       const id = addWindow(config);
@@ -135,6 +147,11 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
   const scaledWidth = wallSize.width * scale;
   const scaledHeight = wallSize.height * scale;
 
+  const logInteraction = (event: string, payload: Record<string, unknown>) => {
+    if (!debug) return;
+    console.debug(`[VideoWall:${event}]`, payload);
+  };
+
   useEffect(() => {
     if (!wallRef.current) return;
 
@@ -144,61 +161,89 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
 
       if (drag.isResizing && drag.target) {
         e.preventDefault();
-        const dx = (e.clientX - drag.startX) / scale;
-        const dy = (e.clientY - drag.startY) / scale;
-
-        let newLeft = drag.initialLeft;
-        let newTop = drag.initialTop;
-        let newWidth = drag.initialWidth;
-        let newHeight = drag.initialHeight;
-
-        const dir = drag.resizeDir;
-
-        if (dir?.includes('e')) newWidth = Math.max(drag.minWidth, drag.initialWidth + dx);
-        if (dir?.includes('w')) {
-          newWidth = Math.max(drag.minWidth, drag.initialWidth - dx);
-          newLeft = drag.initialLeft + dx;
-        }
-        if (dir?.includes('s')) newHeight = Math.max(drag.minHeight, drag.initialHeight + dy);
-        if (dir?.includes('n')) {
-          newHeight = Math.max(drag.minHeight, drag.initialHeight - dy);
-          newTop = drag.initialTop + dy;
+        const wallRect = wallRef.current?.getBoundingClientRect();
+        if (!wallRect) {
+          logInteraction('resize-move-skip', { reason: 'wallRect-missing' });
+          return;
         }
 
-        newLeft = snapToGrid(newLeft, drag.snapGrid);
-        newTop = snapToGrid(newTop, drag.snapGrid);
-        newWidth = Math.max(drag.minWidth, snapToGrid(newWidth, drag.snapGrid));
-        newHeight = Math.max(drag.minHeight, snapToGrid(newHeight, drag.snapGrid));
+        const pointerX = (e.clientX - wallRect.left) / scale;
+        const pointerY = (e.clientY - wallRect.top) / scale;
+        const anchoredPointer = applyResizePointerAnchor({
+          pointerX,
+          pointerY,
+          offsetX: drag.resizeOffsetX,
+          offsetY: drag.resizeOffsetY,
+          resizeDir: drag.resizeDir ?? 'se',
+        });
+        const next = computeResizeRect({
+          pointerX: anchoredPointer.pointerX,
+          pointerY: anchoredPointer.pointerY,
+          resizeDir: drag.resizeDir ?? 'se',
+          initialLeft: drag.initialLeft,
+          initialTop: drag.initialTop,
+          initialWidth: drag.initialWidth,
+          initialHeight: drag.initialHeight,
+          minWidth: drag.minWidth,
+          minHeight: drag.minHeight,
+          maxWidth: wallSize.width,
+          maxHeight: wallSize.height,
+          snapGrid: drag.snapGrid,
+        });
 
-        newLeft = Math.max(0, newLeft);
-        newTop = Math.max(0, newTop);
-        newWidth = Math.min(newWidth, wallSize.width - newLeft);
-        newHeight = Math.min(newHeight, wallSize.height - newTop);
-        newWidth = Math.max(drag.minWidth, newWidth);
-        newHeight = Math.max(drag.minHeight, newHeight);
+        drag.currentLeft = next.left;
+        drag.currentTop = next.top;
+        drag.currentWidth = next.width;
+        drag.currentHeight = next.height;
 
-        drag.target.style.left = `${newLeft * scale}px`;
-        drag.target.style.top = `${newTop * scale}px`;
-        drag.target.style.width = `${newWidth * scale}px`;
-        drag.target.style.height = `${newHeight * scale}px`;
+        if (drag.windowId) {
+          logInteraction('resize-move', {
+            windowId: drag.windowId,
+            resizeDir: drag.resizeDir,
+            pointer: { x: pointerX, y: pointerY },
+            anchoredPointer,
+            next,
+            scale,
+          });
+          updateWindow(drag.windowId, {
+            position: [next.left, next.top],
+            size: [next.width, next.height],
+          });
+        }
         return;
       }
 
       if (drag.isDragging && drag.target) {
-        const dx = (e.clientX - drag.startX) / scale;
-        const dy = (e.clientY - drag.startY) / scale;
+        const wallRect = wallRef.current?.getBoundingClientRect();
+        if (!wallRect) {
+          logInteraction('drag-move-skip', { reason: 'wallRect-missing' });
+          return;
+        }
 
-        let newLeft = drag.initialLeft + dx;
-        let newTop = drag.initialTop + dy;
+        const pointerX = (e.clientX - wallRect.left) / scale;
+        const pointerY = (e.clientY - wallRect.top) / scale;
+        const next = computeDragPosition({
+          pointerX,
+          pointerY,
+          pointerOffsetX: drag.pointerOffsetX,
+          pointerOffsetY: drag.pointerOffsetY,
+          maxLeft: wallSize.width - drag.initialWidth,
+          maxTop: wallSize.height - drag.initialHeight,
+          snapGrid: drag.snapGrid,
+        });
 
-        newLeft = snapToGrid(newLeft, drag.snapGrid);
-        newTop = snapToGrid(newTop, drag.snapGrid);
+        drag.currentLeft = next.left;
+        drag.currentTop = next.top;
 
-        newLeft = Math.max(0, Math.min(newLeft, wallSize.width - (drag.target.offsetWidth / scale)));
-        newTop = Math.max(0, Math.min(newTop, wallSize.height - (drag.target.offsetHeight / scale)));
-
-        drag.target.style.left = `${newLeft * scale}px`;
-        drag.target.style.top = `${newTop * scale}px`;
+        if (drag.windowId) {
+          logInteraction('drag-move', {
+            windowId: drag.windowId,
+            pointer: { x: pointerX, y: pointerY },
+            next,
+            scale,
+          });
+          updateWindow(drag.windowId, { position: [next.left, next.top] });
+        }
         return;
       }
 
@@ -229,14 +274,25 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
       if (drag.isResizing && drag.target) {
         drag.isResizing = false;
         if (drag.windowId) {
-          const newLeft = parseFloat(drag.target.style.left || '0') / scale;
-          const newTop = parseFloat(drag.target.style.top || '0') / scale;
-          const newWidth = parseFloat(drag.target.style.width || '0') / scale;
-          const newHeight = parseFloat(drag.target.style.height || '0') / scale;
-          updateWindow(drag.windowId, { position: [newLeft, newTop], size: [newWidth, newHeight] });
+          logInteraction('resize-end', {
+            windowId: drag.windowId,
+            final: {
+              left: drag.currentLeft,
+              top: drag.currentTop,
+              width: drag.currentWidth,
+              height: drag.currentHeight,
+            },
+            scale,
+          });
+          updateWindow(drag.windowId, {
+            position: [drag.currentLeft, drag.currentTop],
+            size: [drag.currentWidth, drag.currentHeight],
+          });
         }
         drag.target = null;
         drag.windowId = null;
+        drag.resizeOffsetX = 0;
+        drag.resizeOffsetY = 0;
         drag.resizeDir = null;
         return;
       }
@@ -244,29 +300,29 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
       if (drag.isDragging) {
         drag.isDragging = false;
 
-        if (drag.windowId && drag.target) {
-          const newLeft = parseFloat(drag.target.style.left || '0') / scale;
-          const newTop = parseFloat(drag.target.style.top || '0') / scale;
-          updateWindow(drag.windowId, { position: [newLeft, newTop] });
-
-          const rect = drag.target.getBoundingClientRect();
-          const center = getRectCenter({
-            x: rect.left,
-            y: rect.top,
-            width: rect.width,
-            height: rect.height,
+        if (drag.windowId) {
+          logInteraction('drag-end', {
+            windowId: drag.windowId,
+            final: {
+              left: drag.currentLeft,
+              top: drag.currentTop,
+              width: drag.initialWidth,
+              height: drag.initialHeight,
+            },
+            scale,
           });
-          const wallRect = wallRef.current?.getBoundingClientRect();
-          if (wallRect) {
-            const relativeX = (center.x - wallRect.left) / scale;
-            const relativeY = (center.y - wallRect.top) / scale;
-            if (
-              relativeX < 0 || relativeX > wallSize.width ||
-              relativeY < 0 || relativeY > wallSize.height
-            ) {
-              removeWindow(drag.windowId);
-              onWindowClose?.(drag.windowId);
-            }
+          const center = getRectCenter({
+            x: drag.currentLeft,
+            y: drag.currentTop,
+            width: drag.initialWidth,
+            height: drag.initialHeight,
+          });
+          if (
+            center.x < 0 || center.x > wallSize.width ||
+            center.y < 0 || center.y > wallSize.height
+          ) {
+            removeWindow(drag.windowId);
+            onWindowClose?.(drag.windowId);
           }
         }
         drag.target = null;
@@ -289,7 +345,7 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
           const h = height / scale;
 
           if (selection.mode === 'select') {
-            const matched = windows
+            const matched = windowsRef.current
               .filter(win => {
                 const winLeft = win.position[0];
                 const winTop = win.position[1];
@@ -315,7 +371,7 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
           }
 
           if (w >= minSelectionSize && h >= minSelectionSize) {
-            const isOccupied = windows.some(win => {
+            const isOccupied = windowsRef.current.some(win => {
               return x >= win.position[0] && x <= win.position[0] + win.size[0] &&
                      y >= win.position[1] && y <= win.position[1] + win.size[1];
             });
@@ -330,7 +386,7 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
                 const maxWindows = cellConfig?.maxWindows;
                 
                 if (maxWindows !== undefined) {
-                  const windowsInCell = windows.filter(w => w.cellId === cellId).length;
+                  const windowsInCell = windowsRef.current.filter(w => w.cellId === cellId).length;
                   if (windowsInCell >= maxWindows) {
                     onMaxWindowsReached?.(cellId, maxWindows);
                     selEl.remove();
@@ -346,7 +402,7 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
                 position: [x, y],
                 size: [w, h],
                 streamUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-                title: `Window ${windows.length + 1}`,
+                title: `Window ${windowsRef.current.length + 1}`,
                 cellId: cell?.cellId ?? '',
                 minSize: defaultMinSize,
                 snapGrid: defaultSnapGrid,
@@ -379,8 +435,13 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
         const windowId = windowEl.getAttribute('data-window-id');
         if (!windowId) return;
 
-        const win = windows.find(w => w.id === windowId);
-        if (win?.locked) {
+        const win = windowsRef.current.find(w => w.id === windowId);
+        if (!win) {
+          logInteraction('resize-start-skip', { windowId, reason: 'window-missing' });
+          return;
+        }
+        if (win.locked) {
+          logInteraction('resize-start-skip', { windowId, reason: 'window-locked' });
           setSelectedTarget(windowId);
           return;
         }
@@ -391,6 +452,47 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
         activateWindow(windowId);
         setSelectedTarget(windowId);
 
+        const wallRect = wallRef.current?.getBoundingClientRect();
+        if (!wallRect) {
+          logInteraction('resize-start-skip', { windowId, reason: 'wallRect-missing' });
+          return;
+        }
+        const pointerX = (e.clientX - wallRect.left) / scale;
+        const pointerY = (e.clientY - wallRect.top) / scale;
+        const initialLeft = win.position[0];
+        const initialTop = win.position[1];
+        const initialWidth = win.size[0];
+        const initialHeight = win.size[1];
+        const initialRight = initialLeft + initialWidth;
+        const initialBottom = initialTop + initialHeight;
+        const resizeDir = resizeHandle.getAttribute('data-resize-dir') ?? 'se';
+
+        const resizeOffsetX = resizeDir.includes('w')
+          ? pointerX - initialLeft
+          : resizeDir.includes('e')
+            ? pointerX - initialRight
+            : 0;
+
+        const resizeOffsetY = resizeDir.includes('n')
+          ? pointerY - initialTop
+          : resizeDir.includes('s')
+            ? pointerY - initialBottom
+            : 0;
+
+        logInteraction('resize-start', {
+          windowId,
+          resizeDir,
+          pointer: { x: pointerX, y: pointerY },
+          initial: {
+            left: initialLeft,
+            top: initialTop,
+            width: initialWidth,
+            height: initialHeight,
+          },
+          offsets: { x: resizeOffsetX, y: resizeOffsetY },
+          scale,
+        });
+
         dragStateRef.current = {
           isDragging: false,
           isResizing: true,
@@ -398,14 +500,22 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
           windowId,
           startX: e.clientX,
           startY: e.clientY,
-          initialLeft: parseFloat(windowEl.style.left || '0') / scale,
-          initialTop: parseFloat(windowEl.style.top || '0') / scale,
-          initialWidth: parseFloat(windowEl.style.width || '0') / scale,
-          initialHeight: parseFloat(windowEl.style.height || '0') / scale,
-          resizeDir: resizeHandle.getAttribute('data-resize-dir'),
-          snapGrid: win?.snapGrid ?? 10,
-          minWidth: defaultMinSize[0],
-          minHeight: defaultMinSize[1],
+          pointerOffsetX: 0,
+          pointerOffsetY: 0,
+          initialLeft,
+          initialTop,
+          initialWidth,
+          initialHeight,
+          currentLeft: initialLeft,
+          currentTop: initialTop,
+          currentWidth: initialWidth,
+          currentHeight: initialHeight,
+          resizeOffsetX,
+          resizeOffsetY,
+          resizeDir,
+          snapGrid: win.snapGrid ?? 10,
+          minWidth: win.minSize?.[0] ?? defaultMinSize[0],
+          minHeight: win.minSize?.[1] ?? defaultMinSize[1],
         };
         return;
       }
@@ -454,12 +564,47 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
       const windowId = windowEl.getAttribute('data-window-id');
       if (!windowId) return;
 
-      const win = windows.find(w => w.id === windowId);
+      const win = windowsRef.current.find(w => w.id === windowId);
+      if (!win) {
+        logInteraction('drag-start-skip', { windowId, reason: 'window-missing' });
+        return;
+      }
 
       activateWindow(windowId);
       setSelectedTarget(windowId);
 
-      if (win?.locked) return;
+      if (win.locked) {
+        logInteraction('drag-start-skip', { windowId, reason: 'window-locked' });
+        return;
+      }
+
+      const wallRect = wallRef.current?.getBoundingClientRect();
+      if (!wallRect) {
+        logInteraction('drag-start-skip', { windowId, reason: 'wallRect-missing' });
+        return;
+      }
+      const pointerX = (e.clientX - wallRect.left) / scale;
+      const pointerY = (e.clientY - wallRect.top) / scale;
+      const initialLeft = win.position[0];
+      const initialTop = win.position[1];
+      const initialWidth = win.size[0];
+      const initialHeight = win.size[1];
+
+      logInteraction('drag-start', {
+        windowId,
+        pointer: { x: pointerX, y: pointerY },
+        initial: {
+          left: initialLeft,
+          top: initialTop,
+          width: initialWidth,
+          height: initialHeight,
+        },
+        offsets: {
+          x: pointerX - initialLeft,
+          y: pointerY - initialTop,
+        },
+        scale,
+      });
 
       dragStateRef.current = {
         isDragging: true,
@@ -468,14 +613,22 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
         windowId,
         startX: e.clientX,
         startY: e.clientY,
-        initialLeft: parseFloat(windowEl.style.left || '0') / scale,
-        initialTop: parseFloat(windowEl.style.top || '0') / scale,
-        initialWidth: 0,
-        initialHeight: 0,
+        pointerOffsetX: pointerX - initialLeft,
+        pointerOffsetY: pointerY - initialTop,
+        initialLeft,
+        initialTop,
+        initialWidth,
+        initialHeight,
+        currentLeft: initialLeft,
+        currentTop: initialTop,
+        currentWidth: initialWidth,
+        currentHeight: initialHeight,
+        resizeOffsetX: 0,
+        resizeOffsetY: 0,
         resizeDir: null,
-        snapGrid: win?.snapGrid ?? 10,
-        minWidth: win?.minSize?.[0] ?? defaultMinSize[0],
-        minHeight: win?.minSize?.[1] ?? defaultMinSize[1],
+        snapGrid: win.snapGrid ?? 10,
+        minWidth: win.minSize?.[0] ?? defaultMinSize[0],
+        minHeight: win.minSize?.[1] ?? defaultMinSize[1],
       };
     };
 
@@ -488,7 +641,7 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [wallSize.width, wallSize.height, scale, activateWindow, removeWindow, updateWindow, onWindowClose, addWindow, onWindowBeforeCreate, onWindowCreate, windows, cells, layout, gap, onMaxWindowsReached]);
+  }, [wallSize.width, wallSize.height, scale, activateWindow, removeWindow, updateWindow, onWindowClose, addWindow, onWindowBeforeCreate, onWindowCreate, cells, layout, gap, onMaxWindowsReached]);
 
   useEffect(() => {
     if (containerRef.current) {
