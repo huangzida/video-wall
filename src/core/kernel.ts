@@ -1,4 +1,4 @@
-import type { Action, V2WallState, V2WindowState } from '../types/v2';
+import { ErrorCode, type Action, type Result, type V2WallState, type V2WindowState } from '../types/v2';
 
 export type KernelAction = Action;
 
@@ -104,4 +104,35 @@ export function reduceState(state: V2WallState, action: KernelAction): V2WallSta
 
   pruneDanglingReferences(next);
   return next;
+}
+
+function canApplyAction(state: V2WallState, action: KernelAction): boolean {
+  if (action.type === 'window.update') {
+    return Boolean(state.windowsById[action.id]);
+  }
+  if (action.type === 'window.remove') {
+    return Boolean(state.windowsById[action.id]);
+  }
+  return true;
+}
+
+export function applyActionsAtomically(state: V2WallState, actions: KernelAction[]): Result<V2WallState> {
+  let next = cloneState(state);
+
+  for (let index = 0; index < actions.length; index += 1) {
+    const action = actions[index];
+    if (!canApplyAction(next, action)) {
+      return {
+        ok: false,
+        error: {
+          code: ErrorCode.ERR_WINDOW_NOT_FOUND,
+          message: 'Atomic batch failed because a window target does not exist.',
+          detail: { failedAt: index, action },
+        },
+      };
+    }
+    next = reduceState(next, action);
+  }
+
+  return { ok: true, data: next };
 }
