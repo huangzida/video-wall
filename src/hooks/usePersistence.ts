@@ -1,5 +1,5 @@
-import { useEffect, useCallback } from 'react';
-import type { WindowState } from '../types';
+import { useEffect, useRef } from 'react';
+import type { WindowState, Layout } from '../types';
 
 interface PersistenceConfig {
   enabled: boolean;
@@ -7,53 +7,61 @@ interface PersistenceConfig {
   key?: string;
 }
 
+interface PersistenceData {
+  layout: Layout;
+  windows: WindowState[];
+}
+
 export function usePersistence(
   config: PersistenceConfig | undefined,
   windows: WindowState[],
-  setWindows: (windows: WindowState[]) => void
+  layout: Layout,
+  setWindows: (windows: WindowState[]) => void,
+  setLayout: (layout: Layout) => void
 ) {
   const storage = config?.storage ?? 'localStorage';
   const key = config?.key ?? 'video-wall-state';
+  
+  const loadedRef = useRef(false);
+  const isLoadingRef = useRef(false);
+  
+  const setWindowsRef = useRef(setWindows);
+  setWindowsRef.current = setWindows;
+  
+  const setLayoutRef = useRef(setLayout);
+  setLayoutRef.current = setLayout;
 
-  const save = useCallback(() => {
+  // Load from storage when persistence is enabled
+  useEffect(() => {
     if (!config?.enabled) return;
-    try {
-      const data = JSON.stringify(windows);
-      window[storage].setItem(key, data);
-    } catch (e) {
-      console.warn('Failed to save state:', e);
-    }
-  }, [config?.enabled, windows, storage, key]);
-
-  const load = useCallback(() => {
-    if (!config?.enabled) return;
+    if (loadedRef.current) return;
+    
+    isLoadingRef.current = true;
+    loadedRef.current = true;
+    
     try {
       const data = window[storage].getItem(key);
       if (data) {
-        const parsed = JSON.parse(data) as WindowState[];
-        setWindows(parsed);
+        const parsed: PersistenceData = JSON.parse(data);
+        if (parsed.windows?.length > 0) {
+          setWindowsRef.current(parsed.windows);
+        }
+        if (parsed.layout) {
+          setLayoutRef.current(parsed.layout);
+        }
       }
-    } catch (e) {
-      console.warn('Failed to load state:', e);
-    }
-  }, [config?.enabled, storage, key, setWindows]);
-
-  const clear = useCallback(() => {
-    if (!config?.enabled) return;
-    try {
-      window[storage].removeItem(key);
-    } catch (e) {
-      console.warn('Failed to clear state:', e);
-    }
+    } catch (e) {}
+    
+    isLoadingRef.current = false;
   }, [config?.enabled, storage, key]);
 
+  // Save when state changes (only after loading completes)
   useEffect(() => {
-    load();
-  }, []);
-
-  useEffect(() => {
-    save();
-  }, [windows]);
-
-  return { save, load, clear };
+    if (!config?.enabled) return;
+    if (isLoadingRef.current) return;  // Skip save while loading
+    
+    try {
+      window[storage].setItem(key, JSON.stringify({ layout, windows }));
+    } catch (e) {}
+  }, [config?.enabled, layout, windows, storage, key]);
 }

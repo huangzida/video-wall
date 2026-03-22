@@ -50,16 +50,19 @@ export function Mp4Player({ url, autoplay = true, onStateChange }: Mp4PlayerProp
       onStateChange?.('error');
     };
 
+    video.src = url;
     video.addEventListener('canplay', handleCanPlay);
     video.addEventListener('play', handlePlay);
     video.addEventListener('pause', handlePause);
     video.addEventListener('error', handleError);
 
     return () => {
+      video.pause();
       video.removeEventListener('canplay', handleCanPlay);
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('error', handleError);
+      video.src = '';
     };
   }, [url, autoplay, onStateChange]);
 

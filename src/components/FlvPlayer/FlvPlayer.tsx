@@ -27,6 +27,16 @@ export function FlvPlayer({ url, autoplay = true, onStateChange }: FlvPlayerProp
   useEffect(() => {
     if (!videoRef.current) return;
 
+    const handleError = () => {
+      setState('error');
+      onStateChange?.('error');
+    };
+
+    const handleLoadingComplete = () => {
+      setState('paused');
+      onStateChange?.('paused');
+    };
+
     if (flvjs.isSupported()) {
       const player = flvjs.createPlayer({
         type: 'flv',
@@ -38,26 +48,24 @@ export function FlvPlayer({ url, autoplay = true, onStateChange }: FlvPlayerProp
 
       player.attachMediaElement(videoRef.current);
       player.load();
-      
+
       if (autoplay) {
         player.play();
       }
 
-      player.on(flvjs.Events.ERROR, () => {
-        setState('error');
-        onStateChange?.('error');
-      });
-
-      player.on(flvjs.Events.LOADING_COMPLETE, () => {
-        setState('paused');
-        onStateChange?.('paused');
-      });
+      player.on(flvjs.Events.ERROR, handleError);
+      player.on(flvjs.Events.LOADING_COMPLETE, handleLoadingComplete);
 
       playerRef.current = player;
     }
 
     return () => {
-      playerRef.current?.destroy();
+      if (playerRef.current) {
+        playerRef.current.off(flvjs.Events.ERROR, handleError);
+        playerRef.current.off(flvjs.Events.LOADING_COMPLETE, handleLoadingComplete);
+        playerRef.current.destroy();
+        playerRef.current = null;
+      }
     };
   }, [url, autoplay, onStateChange]);
 

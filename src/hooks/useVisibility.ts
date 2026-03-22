@@ -9,6 +9,9 @@ export function useVisibility(onVisibilityChange?: (visible: boolean) => void) {
     elementRef.current = el;
   }, []);
 
+  const callbackRef = useRef(onVisibilityChange);
+  callbackRef.current = onVisibilityChange;
+
   useEffect(() => {
     if (!elementRef.current) return;
 
@@ -16,7 +19,7 @@ export function useVisibility(onVisibilityChange?: (visible: boolean) => void) {
       (entries) => {
         const visible = entries[0]?.isIntersecting ?? false;
         setIsVisible(visible);
-        onVisibilityChange?.(visible);
+        callbackRef.current?.(visible);
       },
       { threshold: 0.1 }
     );
@@ -26,7 +29,7 @@ export function useVisibility(onVisibilityChange?: (visible: boolean) => void) {
     return () => {
       observerRef.current?.disconnect();
     };
-  }, [onVisibilityChange]);
+  }, [callbackRef]);
 
   return { isVisible, setElement };
 }

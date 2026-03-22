@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import type {
   VideoWallRef,
   VideoWallProps,
@@ -11,18 +11,34 @@ import { getWallSize, calculateCellPositions, calculateScale } from '../utils/la
 
 export function useVideoWall(props: Omit<VideoWallProps, 'ref'>, containerRef: React.RefObject<HTMLDivElement | null>) {
   const {
-    layout,
+    layout: propLayout,
     cells,
     gap = 0,
     scaleMode = 'contain',
     customScale,
     persistence,
+    defaultMinSize,
+    onLayoutChange,
   } = props;
 
   const [windows, setWindows] = useState<WindowState[]>([]);
+  const [layout, setLayout] = useState<Layout>(propLayout);
+  const propLayoutRef = useRef(propLayout);
+  propLayoutRef.current = propLayout;
+  const pendingLayoutRef = useRef<Layout | null>(null);
+  const isFromInternalRef = useRef(false);
+
+  // Sync layout from props when it changes
+  useEffect(() => {
+    if (!isFromInternalRef.current) {
+      setLayout(propLayout);
+    }
+    isFromInternalRef.current = false;
+  }, [propLayout]);
+
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
-  usePersistence(persistence, windows, setWindows);
+  usePersistence(persistence, windows, layout, setWindows, setLayout);
 
   const cellPositions = useMemo(
     () => calculateCellPositions(cells, layout, gap),
@@ -57,7 +73,7 @@ export function useVideoWall(props: Omit<VideoWallProps, 'ref'>, containerRef: R
       title: config.title,
       locked: config.locked ?? false,
       border: config.border,
-      minSize: config.minSize ?? [200, 150],
+      minSize: config.minSize ?? defaultMinSize ?? [200, 150],
       snapGrid: config.snapGrid ?? 10,
       zIndex: maxZ + 1,
       isActive: true,
@@ -85,9 +101,15 @@ export function useVideoWall(props: Omit<VideoWallProps, 'ref'>, containerRef: R
     ));
   }, [getMaxZIndex]);
 
-  const setLayout = useCallback((newLayout: Layout) => {
-    setWindows([]);
-  }, []);
+  const handleSetLayout = useCallback((newLayout: Layout) => {
+    isFromInternalRef.current = true;
+    pendingLayoutRef.current = newLayout;
+    setLayout(newLayout);
+    const currentPropLayout = propLayoutRef.current;
+    if (currentPropLayout.rows !== newLayout.rows || currentPropLayout.cols !== newLayout.cols) {
+      onLayoutChange?.(newLayout);
+    }
+  }, [onLayoutChange]);
 
   const applyPreset = useCallback((presetName: string) => {
     const preset = props.presets?.find(p => p.name === presetName);
@@ -139,12 +161,13 @@ export function useVideoWall(props: Omit<VideoWallProps, 'ref'>, containerRef: R
     removeWindow,
     updateWindow,
     activateWindow,
-    setLayout,
+    setLayout: handleSetLayout,
     applyPreset,
     scale,
     wallSize,
     cellPositions,
     containerRef,
     handleContainerResize,
+    layout,
   };
 }

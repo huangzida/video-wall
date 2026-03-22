@@ -112,49 +112,6 @@ export function VideoWindow({
         </div>
       )}
 
-      {false && !window.locked && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onClose?.(window.id);
-          }}
-          style={{
-            position: 'absolute',
-            top: 8,
-            right: 8,
-            width: 24,
-            height: 24,
-            padding: 0,
-            background: 'rgba(0, 0, 0, 0.5)',
-            backdropFilter: 'blur(10px)',
-            WebkitBackdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            borderRadius: 6,
-            color: 'rgba(255, 255, 255, 0.7)',
-            cursor: 'pointer',
-            fontSize: 14,
-            lineHeight: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: 0,
-            transition: 'opacity 0.2s ease, background 0.2s ease',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.opacity = '1';
-            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.8)';
-            e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.5)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.opacity = '0';
-            e.currentTarget.style.background = 'rgba(0, 0, 0, 0.5)';
-            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-          }}
-        >
-          ×
-        </button>
-      )}
-
       {/* Resize handles */}
       {isActive && (
         <>

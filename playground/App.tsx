@@ -273,6 +273,7 @@ export default function App() {
               persistence={persistenceEnabled ? { enabled: true, key: 'video-wall-state' } : undefined}
               onLayoutChange={l => {
                 console.log('Layout changed:', l);
+                setLayout(l);  // Sync with VideoWall's layout when persistence restores
                 const viewport = wallRef.current?.getViewport();
                 if (viewport) {
                   setWallSize({ width: viewport.width, height: viewport.height });

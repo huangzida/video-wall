@@ -4,6 +4,7 @@ import {
   useState,
   forwardRef,
   useImperativeHandle,
+  useMemo,
 } from 'react';
 import { VideoWindow } from '../VideoWindow';
 import { DebugPanel } from '../DebugPanel';
@@ -23,7 +24,6 @@ function snapToGrid(value: number, gridSize: number, threshold: number = 5): num
 
 export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) => {
   const {
-    layout,
     cells,
     gap = 0,
     background,
@@ -34,6 +34,7 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
     minSelectionSize = 20,
     defaultMinSize = [100, 75],
     defaultSnapGrid = 10,
+    persistence,
     onLayoutChange,
     onWindowCreate,
     onWindowBeforeCreate,
@@ -100,7 +101,8 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
     scale,
     wallSize,
     handleContainerResize,
-  } = useVideoWall(props, containerRef);
+    layout,
+  } = useVideoWall({ ...props, persistence }, containerRef);
 
   useImperativeHandle(ref, () => ({
     addWindow: (config) => {
@@ -162,8 +164,15 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
 
         newLeft = snapToGrid(newLeft, drag.snapGrid);
         newTop = snapToGrid(newTop, drag.snapGrid);
-        newWidth = snapToGrid(newWidth, drag.snapGrid);
-        newHeight = snapToGrid(newHeight, drag.snapGrid);
+        newWidth = Math.max(drag.minWidth, snapToGrid(newWidth, drag.snapGrid));
+        newHeight = Math.max(drag.minHeight, snapToGrid(newHeight, drag.snapGrid));
+
+        newLeft = Math.max(0, newLeft);
+        newTop = Math.max(0, newTop);
+        newWidth = Math.min(newWidth, wallSize.width - newLeft);
+        newHeight = Math.min(newHeight, wallSize.height - newTop);
+        newWidth = Math.max(drag.minWidth, newWidth);
+        newHeight = Math.max(drag.minHeight, newHeight);
 
         drag.target.style.left = `${newLeft * scale}px`;
         drag.target.style.top = `${newTop * scale}px`;
@@ -366,8 +375,8 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
           initialHeight: parseFloat(windowEl.style.height || '0') / scale,
           resizeDir: resizeHandle.getAttribute('data-resize-dir'),
           snapGrid: win?.snapGrid ?? 10,
-          minWidth: win?.minSize?.[0] ?? 100,
-          minHeight: win?.minSize?.[1] ?? 75,
+          minWidth: defaultMinSize[0],
+          minHeight: defaultMinSize[1],
         };
         return;
       }
@@ -388,6 +397,9 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
           startX: relativeX,
           startY: relativeY,
         };
+
+        const existingSel = wallRef.current?.querySelector('.selection-box');
+        if (existingSel) existingSel.remove();
 
         const selEl = document.createElement('div');
         selEl.className = 'selection-box';
@@ -432,8 +444,8 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
         initialHeight: 0,
         resizeDir: null,
         snapGrid: win?.snapGrid ?? 10,
-        minWidth: win?.minSize?.[0] ?? 100,
-        minHeight: win?.minSize?.[1] ?? 75,
+        minWidth: win?.minSize?.[0] ?? defaultMinSize[0],
+        minHeight: win?.minSize?.[1] ?? defaultMinSize[1],
       };
     };
 
@@ -475,7 +487,10 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedTarget, removeWindow, onWindowClose]);
 
-  const cellPositionsCalc = calculateCellPositions(cells, layout, gap);
+  const cellPositionsCalc = useMemo(
+    () => calculateCellPositions(cells, layout, gap),
+    [cells, layout, gap]
+  );
 
   return (
     <div
@@ -580,7 +595,7 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
             scale,
             viewport: { width: wallSize.width, height: wallSize.height },
             totalWindows: windows.length,
-            visibleWindows: windows.filter(w => w.isActive).length,
+            visibleWindows: windows.length,
           }}
         />
       )}
