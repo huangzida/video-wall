@@ -91,11 +91,13 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
     isSelecting: boolean;
     startX: number;
     startY: number;
+    startScale: number;
     mode: 'create' | 'select';
   }>({
     isSelecting: false,
     startX: 0,
     startY: 0,
+    startScale: 1,
     mode: 'create',
   });
 
@@ -252,7 +254,7 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
         if (selEl) {
           const wallRect = wallRef.current?.getBoundingClientRect();
           if (!wallRect) return;
-          
+
           const endX = e.clientX - wallRect.left;
           const endY = e.clientY - wallRect.top;
           const left = Math.min(selection.startX, endX);
@@ -339,10 +341,11 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
           const width = parseFloat(selEl.style.width);
           const height = parseFloat(selEl.style.height);
 
-          const x = left / scale;
-          const y = top / scale;
-          const w = width / scale;
-          const h = height / scale;
+          const selScale = selection.startScale;
+          const x = left / selScale;
+          const y = top / selScale;
+          const w = width / selScale;
+          const h = height / selScale;
 
           if (selection.mode === 'select') {
             const matched = windowsRef.current
@@ -366,6 +369,7 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
             selection.isSelecting = false;
             selection.startX = 0;
             selection.startY = 0;
+            selection.startScale = 1;
             selection.mode = 'create';
             return;
           }
@@ -387,6 +391,7 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
                   selection.isSelecting = false;
                   selection.startX = 0;
                   selection.startY = 0;
+                  selection.startScale = 1;
                   return;
                 }
               }
@@ -415,6 +420,7 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
         }
         selection.startX = 0;
         selection.startY = 0;
+        selection.startScale = 1;
       }
     };
 
@@ -529,6 +535,7 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
           isSelecting: true,
           startX: relativeX,
           startY: relativeY,
+          startScale: scale,
           mode: resolveEmptyAreaDragMode(e.shiftKey),
         };
 
