@@ -105,4 +105,59 @@ describe('interactionEngine', () => {
 
     expect(resized.width).toBe(220);
   });
+
+  it('anchors bottom edge when dragging north handle', () => {
+    const anchored = applyResizePointerAnchor({
+      pointerX: 150,
+      pointerY: 90,
+      offsetX: 0,
+      offsetY: 10,
+      resizeDir: 'n',
+    });
+
+    expect(anchored.pointerX).toBe(150);
+    expect(anchored.pointerY).toBe(100);
+  });
+
+  it('anchors top edge when dragging south handle', () => {
+    const anchored = applyResizePointerAnchor({
+      pointerX: 150,
+      pointerY: 230,
+      offsetX: 0,
+      offsetY: 10,
+      resizeDir: 's',
+    });
+
+    expect(anchored.pointerX).toBe(150);
+    expect(anchored.pointerY).toBe(240);
+  });
+
+  it('north resize expands window downward with top fixed', () => {
+    const anchored = applyResizePointerAnchor({
+      pointerX: 150,
+      pointerY: 80,
+      offsetX: 0,
+      offsetY: 20,
+      resizeDir: 'n',
+    });
+
+    const resized = computeResizeRect({
+      pointerX: anchored.pointerX,
+      pointerY: anchored.pointerY,
+      resizeDir: 'n',
+      initialLeft: 100,
+      initialTop: 100,
+      initialWidth: 200,
+      initialHeight: 150,
+      minWidth: 100,
+      minHeight: 80,
+      maxWidth: 1920,
+      maxHeight: 1080,
+      snapGrid: 0,
+    });
+
+    expect(resized.left).toBe(100);
+    expect(resized.top).toBe(100);
+    expect(resized.height).toBeGreaterThanOrEqual(150);
+  });
 });

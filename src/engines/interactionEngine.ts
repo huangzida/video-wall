@@ -138,9 +138,13 @@ export function computeResizeRect(input: ResizeComputeInput): { left: number; to
 export function applyResizePointerAnchor(input: ResizeAnchorInput): { pointerX: number; pointerY: number } {
   const { pointerX, pointerY, offsetX, offsetY, resizeDir } = input;
 
+  const isHorizontal = resizeDir.includes('w') || resizeDir.includes('e');
+  const isNorth = resizeDir.includes('n');
+  const isSouth = resizeDir.includes('s');
+
   return {
-    pointerX: resizeDir.includes('w') || resizeDir.includes('e') ? pointerX - offsetX : pointerX,
-    pointerY: resizeDir.includes('n') || resizeDir.includes('s') ? pointerY - offsetY : pointerY,
+    pointerX: isHorizontal ? pointerX - offsetX : pointerX,
+    pointerY: isNorth ? pointerY + offsetY : isSouth ? pointerY + offsetY : pointerY,
   };
 }
 

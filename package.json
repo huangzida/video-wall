@@ -33,7 +33,7 @@
     "dev": "vite",
     "build": "tsup",
     "build:play": "vite build",
-    "test": "vitest",
+    "test": "vitest --run",
     "lint": "tsc --noEmit"
   }
 }

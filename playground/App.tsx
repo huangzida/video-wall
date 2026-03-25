@@ -316,12 +316,10 @@ export default function App() {
               onWindowCreate={w => {
                 console.log('Window created:', w);
                 setTotalWindows(prev => prev + 1);
-                setActiveWindows(prev => prev + 1);
               }}
               onWindowClose={id => {
                 console.log('Window closed:', id);
                 setTotalWindows(prev => Math.max(0, prev - 1));
-                setActiveWindows(prev => Math.max(0, prev - 1));
                 if (id === activeWindowId) {
                   setActiveWindowId(null);
                   setActiveWindowLocked(false);

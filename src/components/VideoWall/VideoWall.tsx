@@ -371,49 +371,43 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
           }
 
           if (w >= minSelectionSize && h >= minSelectionSize) {
-            const isOccupied = windowsRef.current.some(win => {
-              return x >= win.position[0] && x <= win.position[0] + win.size[0] &&
-                     y >= win.position[1] && y <= win.position[1] + win.size[1];
-            });
-
-            if (!isOccupied) {
-              const cellPositions = calculateCellPositions(cells, layout, gap);
-              const cell = findCellAtPosition(x, y, cellPositions);
+            const cellPositions = calculateCellPositions(cells, layout, gap);
+            const cell = findCellAtPosition(x, y, cellPositions);
+            
+            if (cell) {
+              const cellId = cell.cellId;
+              const cellConfig = cells.find(c => c.id === cellId);
+              const maxWindows = cellConfig?.maxWindows;
               
-              if (cell) {
-                const cellId = cell.cellId;
-                const cellConfig = cells.find(c => c.id === cellId);
-                const maxWindows = cellConfig?.maxWindows;
-                
-                if (maxWindows !== undefined) {
-                  const windowsInCell = windowsRef.current.filter(w => w.cellId === cellId).length;
-                  if (windowsInCell >= maxWindows) {
-                    onMaxWindowsReached?.(cellId, maxWindows);
-                    selEl.remove();
-                    selection.isSelecting = false;
-                    selection.startX = 0;
-                    selection.startY = 0;
-                    return;
-                  }
+              if (maxWindows !== undefined) {
+                const windowsInCell = windowsRef.current.filter(w => w.cellId === cellId).length;
+                if (windowsInCell >= maxWindows) {
+                  onMaxWindowsReached?.(cellId, maxWindows);
+                  selEl.remove();
+                  selection.isSelecting = false;
+                  selection.startX = 0;
+                  selection.startY = 0;
+                  return;
                 }
               }
+            }
 
-              const config: any = {
-                position: [x, y],
-                size: [w, h],
-                streamUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-                title: `Window ${windowsRef.current.length + 1}`,
-                cellId: cell?.cellId ?? '',
-                minSize: defaultMinSize,
-                snapGrid: defaultSnapGrid,
-              };
+            const config: any = {
+              position: [x, y],
+              size: [w, h],
+              streamUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+              title: `Window ${windowsRef.current.length + 1}`,
+              cellId: cell?.cellId ?? '',
+              minSize: defaultMinSize,
+              snapGrid: defaultSnapGrid,
+            };
 
-              const finalConfig = onWindowBeforeCreate?.(config) ?? config;
-              if (finalConfig) {
-                const id = addWindow(finalConfig);
-                if (id) {
-                  onWindowCreate?.(finalConfig);
-                }
+            const finalConfig = onWindowBeforeCreate?.(config) ?? config;
+            if (finalConfig) {
+              const id = addWindow(finalConfig);
+              if (id) {
+                activateWindow(id);
+                onWindowCreate?.(finalConfig);
               }
             }
           }
@@ -468,15 +462,15 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
         const resizeDir = resizeHandle.getAttribute('data-resize-dir') ?? 'se';
 
         const resizeOffsetX = resizeDir.includes('w')
-          ? pointerX - initialLeft
+          ? initialLeft - pointerX
           : resizeDir.includes('e')
-            ? pointerX - initialRight
+            ? initialRight - pointerX
             : 0;
 
         const resizeOffsetY = resizeDir.includes('n')
-          ? pointerY - initialTop
+          ? initialTop - pointerY
           : resizeDir.includes('s')
-            ? pointerY - initialBottom
+            ? initialBottom - pointerY
             : 0;
 
         logInteraction('resize-start', {
@@ -726,7 +720,7 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
               pointerEvents: 'none',
             }}
           >
-            <div style={{
+            {/* <div style={{
               position: 'absolute',
               top: 4,
               left: 4,
@@ -740,7 +734,7 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
               pointerEvents: 'none',
             }}>
               {index + 1}
-            </div>
+            </div> */}
           </div>
         ))}
 
@@ -755,6 +749,7 @@ export const VideoWall = forwardRef<VideoWallRef, VideoWallProps>((props, ref) =
             showBorder={showBorder}
             showTitle={showTitle}
             showCollapse={showCollapse}
+            isResizing={dragStateRef.current.isResizing && dragStateRef.current.windowId === win.id}
             onMove={(id, pos) => updateWindow(id, { position: pos })}
             onResize={(id, size) => updateWindow(id, { size })}
             onClose={(id) => {

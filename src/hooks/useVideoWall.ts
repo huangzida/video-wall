@@ -24,6 +24,10 @@ export function useVideoWall(props: Omit<VideoWallProps, 'ref'>, containerRef: R
   } = props;
 
   const [windows, setWindows] = useState<WindowState[]>([]);
+  const windowsRef = useRef<WindowState[]>([]);
+  useEffect(() => {
+    windowsRef.current = windows;
+  }, [windows]);
   const [layout, setLayout] = useState<Layout>(propLayout);
   const propLayoutRef = useRef(propLayout);
   propLayoutRef.current = propLayout;
@@ -69,9 +73,10 @@ export function useVideoWall(props: Omit<VideoWallProps, 'ref'>, containerRef: R
   );
 
   const getMaxZIndex = useCallback(() => {
-    if (windows.length === 0) return 0;
-    return Math.max(...windows.map(w => w.zIndex));
-  }, [windows]);
+    const currentWindows = windowsRef.current;
+    if (currentWindows.length === 0) return 0;
+    return Math.max(...currentWindows.map(w => w.zIndex));
+  }, []);
 
   const addWindow = useCallback((config: Partial<WindowConfig>): string | null => {
     const id = `window-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
